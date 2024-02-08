@@ -1,6 +1,7 @@
 package org.example;
 
 import org.example.models.exceptions.UserAlreadyRegisteredException;
+import org.example.models.exceptions.UserIsNotRegisteredException;
 import org.example.models.services.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -25,43 +26,23 @@ public class TestingBot extends TelegramLongPollingBot {
             User actualUser = update.getMessage().getFrom();
             String messageText = update.getMessage().getText();
             long chatId = update.getMessage().getChatId();
-            if (update.getMessage().getText().equals("/start")) {
-                SendMessage message = new SendMessage();
-                message.setText("Hello "+actualUser.getFirstName());
-                message.setChatId(chatId);
 
-                InlineKeyboardMarkup markupInline = new InlineKeyboardMarkup();
-                List<List<InlineKeyboardButton>> rowsInLine = new ArrayList<>();
-                List<InlineKeyboardButton> rowInLine = new ArrayList<>();
-                InlineKeyboardButton registrationButton = new InlineKeyboardButton();
-                registrationButton.setText("Registration");
-                registrationButton.setCallbackData("register");
-
-                rowInLine.add(registrationButton);
-                rowsInLine.add(rowInLine);
-
-                markupInline.setKeyboard(rowsInLine);
-                message.setReplyMarkup(markupInline);
-
-                try {
-                    execute(message);
-                } catch (TelegramApiException e) {
-                    e.printStackTrace();
-                }
+            if (update.getMessage().getText().equals("/start")||update.getMessage().getText().equals("/menu")) {
+                mainMenu(chatId, actualUser);
             }
-        }else if (update.hasCallbackQuery()){
+
+        } else if (update.hasCallbackQuery()){
             User actualUser = update.getCallbackQuery().getFrom();
             String callData = update.getCallbackQuery().getData();
             long chatId = update.getCallbackQuery().getMessage().getChatId();
 
             if (callData.equals("register")){
-                String answer = "You are registered!!!!!!";
+                String answer = "You are registered.";
                 try {
                     userService.create(actualUser);
                 } catch (UserAlreadyRegisteredException e){
                     answer = e.getMessage();
                 }
-
                 SendMessage message = new SendMessage();
                 message.setChatId(chatId);
                 message.setText(answer);
@@ -70,7 +51,61 @@ public class TestingBot extends TelegramLongPollingBot {
                 } catch (TelegramApiException e){
                     e.printStackTrace();
                 }
+
+            } else if (callData.equals("delete")){
+                String answer = "Your account is deleted.";
+                try{
+                    userService.delete(actualUser);
+                } catch (UserIsNotRegisteredException e){
+                    answer = e.getMessage();
+                }
+                SendMessage message = new SendMessage();
+                message.setChatId(chatId);
+                message.setText(answer);
+                try{
+                    execute(message);
+                }catch (TelegramApiException e){
+                    e.printStackTrace();
+                }
             }
+        }
+    }
+
+
+    public void mainMenu(long chatId, User actualUser){
+        SendMessage message = new SendMessage();
+        message.setChatId(chatId);
+        message.setText("      MENU      \n" +
+                "----------------");
+
+
+        InlineKeyboardMarkup markupInline = new InlineKeyboardMarkup();
+        List<List<InlineKeyboardButton>> rowsInLine = new ArrayList<>();
+        List<InlineKeyboardButton> rowInLine = new ArrayList<>();
+
+        InlineKeyboardButton registrationButton = new InlineKeyboardButton();
+        registrationButton.setText("Registration");
+        registrationButton.setCallbackData("register");
+
+        InlineKeyboardButton deletingButton = new InlineKeyboardButton();
+        deletingButton.setText("Delete account");
+        deletingButton.setCallbackData("delete");
+
+        if (!userService.isRegistered(actualUser)) {
+            rowInLine.add(registrationButton);
+            rowsInLine.add(rowInLine);
+        } else {
+            rowInLine.add(deletingButton);
+            rowsInLine.add(rowInLine);
+        }
+
+        markupInline.setKeyboard(rowsInLine);
+        message.setReplyMarkup(markupInline);
+
+        try{
+            execute(message);
+        }catch (TelegramApiException e){
+            e.printStackTrace();
         }
     }
 
