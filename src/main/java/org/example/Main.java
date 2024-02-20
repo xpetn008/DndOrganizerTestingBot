@@ -1,6 +1,7 @@
 package org.example;
 
 import jakarta.annotation.PostConstruct;
+import org.example.models.services.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -14,6 +15,7 @@ import javax.swing.*;
 public class Main {
     public static void main(String[] args) {
         SpringApplication.run(Main.class, args);
+
     }
     @PostConstruct
     public void init() throws TelegramApiException{
@@ -23,6 +25,8 @@ public class Main {
         TelegramBotsApi botsApi = new TelegramBotsApi(DefaultBotSession.class);
         botsApi.registerBot(testingBot);
     }
+    @Autowired
+    private UserService userService;
     @Autowired
     private TestingBot testingBot;
 }

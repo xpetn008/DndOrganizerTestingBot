@@ -11,11 +11,16 @@ public class UserEntity {
     private String username;
     @Column(name = "telegram_id")
     private Long telegramId;
+    @Column(name = "master")
+    private boolean master;
+    @Column(name = "master_nickname")
+    private String masterNickname;
 
     public UserEntity (){}
-    public UserEntity (String username, Long telegramId){
+    public UserEntity (String username, Long telegramId, boolean master){
         this.username = username;
         this.telegramId = telegramId;
+        this.master = master;
     }
     public Long getId() {
         return id;
@@ -35,5 +40,21 @@ public class UserEntity {
 
     public void setTelegramId(Long telegramId) {
         this.telegramId = telegramId;
+    }
+
+    public boolean isMaster() {
+        return master;
+    }
+
+    public void setMaster(boolean master) {
+        this.master = master;
+    }
+
+    public String getMasterNickname() {
+        return masterNickname;
+    }
+
+    public void setMasterNickname(String masterNickname) {
+        this.masterNickname = masterNickname;
     }
 }
