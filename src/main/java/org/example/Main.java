@@ -26,7 +26,5 @@ public class Main {
         botsApi.registerBot(testingBot);
     }
     @Autowired
-    private UserService userService;
-    @Autowired
     private TestingBot testingBot;
 }
