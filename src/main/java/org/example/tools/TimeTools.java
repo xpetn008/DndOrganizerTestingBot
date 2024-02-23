@@ -1,5 +1,7 @@
 package org.example.tools;
 
+import org.springframework.cglib.core.Local;
+
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -30,8 +32,12 @@ public class TimeTools {
             return true;
         }
     }
-    public static LocalTime parseTime (String timeString) throws DateTimeParseException {
+    public static LocalTime parseStringToLocalTime (String timeString) throws DateTimeParseException {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm");
         return LocalTime.parse(timeString, formatter);
+    }
+    public static String parseLocalTimeToString (LocalTime time){
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm");
+        return time.format(formatter);
     }
 }

@@ -9,10 +9,7 @@ import okhttp3.*;
 import org.checkerframework.checker.units.qual.A;
 import org.example.data.entities.GameEntity;
 import org.example.data.entities.UserEntity;
-import org.example.models.exceptions.NicknameAlreadyExistsException;
-import org.example.models.exceptions.UserAlreadyRegisteredException;
-import org.example.models.exceptions.UserIsNotMasterException;
-import org.example.models.exceptions.UserIsNotRegisteredException;
+import org.example.models.exceptions.*;
 import org.example.models.services.GameService;
 import org.example.models.services.UserService;
 import org.example.tools.DateTools;
@@ -45,6 +42,7 @@ public class TestingBot extends TelegramLongPollingBot {
     private UserService userService;
     private final Map<Long, String> userStates = new HashMap<>();
     private final Multimap<Long, Integer> messageRecycleBin = ArrayListMultimap.create();
+    private String editedGameName;
     private GameEntity newGame;
     @Override
     public void onUpdateReceived(Update update) {
@@ -62,6 +60,8 @@ public class TestingBot extends TelegramLongPollingBot {
                 registration(chatId, actualUser, messageText);
             } else if (userStates.get(chatId).contains("creating")){
                 createGame(chatId, actualUser, messageText);
+            } else if (userStates.get(chatId).contains("editing_games") && userStates.get(chatId).contains("control")){
+                editMasterGame(chatId, messageText, actualUser);
             }
 
         } else if (update.hasCallbackQuery()){
@@ -88,6 +88,32 @@ public class TestingBot extends TelegramLongPollingBot {
             } else if (callData.equals("createGame")){
                 userStates.replace(chatId, "creating_game_name");
                 createGame(chatId, actualUser, messageText);
+            } else if (callData.equals("editGames") || callData.equals("editingMasterGame") || callData.contains("editingGame") || callData.equals("deletingGame")){
+                if (callData.equals("editGames")){
+                    showMasterGames(chatId, actualUser);
+                } else if (callData.equals("editingMasterGame")){
+                    userStates.replace(chatId, "editing_games_action");
+                    editMasterGame(chatId, messageText, actualUser);
+                } else if (callData.contains("editingGame")){
+                    if (callData.equals("editingGameName")){
+                        userStates.replace(chatId, "editing_games_name");
+                    } else if (callData.equals("editingGameDate")){
+                        userStates.replace(chatId, "editing_games_date");
+                    } else if (callData.equals("editingGameTime")){
+                        userStates.replace(chatId, "editing_games_time");
+                    } else if (callData.equals("deletingGame")){
+                        userStates.replace(chatId, "editing_games_delete");
+                    }
+                    editMasterGame(chatId, messageText, actualUser);
+                }
+            } else if (callData.contains("deletingGames")){
+                if (callData.equals("deletingGamesYes")){
+                    userStates.replace(chatId, "editing_games_delete_control");
+                    editMasterGame(chatId, messageText, actualUser);
+                } else if (callData.equals("deletingGamesNo")){
+                    userStates.replace(chatId, "default");
+                    showMenu(chatId, actualUser);
+                }
             }
         }
     }
@@ -321,7 +347,7 @@ public class TestingBot extends TelegramLongPollingBot {
 
         InlineKeyboardButton editGamesButton = new InlineKeyboardButton();
         editGamesButton.setText("Edit games");
-        editGamesButton.setCallbackData("editGame");
+        editGamesButton.setCallbackData("editGames");
 
         rowInLine1.add(deletingButton);
         rowInLine2.add(createGameButton);
@@ -342,36 +368,36 @@ public class TestingBot extends TelegramLongPollingBot {
     public void createGame(long chatId, User actualUser, String messageText){
         if (userStates.get(chatId).equals("creating_game_name")){
             newGame = new GameEntity();
-            sendMessage("Please choose a unique name for your game: ", chatId);
+            sendMessage("Please choose a unique name for your game: ", chatId, null);
             userStates.replace(chatId, "creating_game_date");
         } else if (userStates.get(chatId).equals("creating_game_date")){
             if (!gameService.gameNameIsFree(messageText)){
-                sendMessage("This game name is already used. Please choose other name: ", chatId);
+                sendMessage("This game name is already used. Please choose other name: ", chatId, null);
             }else {
                 newGame.setName(messageText);
                 sendMessage("Please choose a date for your game. Date must " +
-                        "have format (dd.MM.yyyy) and be at least 1 week away but no more than 2 years away.", chatId);
+                        "have format (dd.MM.yyyy) and be at least 1 week away but no more than 2 years away.", chatId, null);
                 userStates.replace(chatId, "creating_game_time");
             }
         } else if (userStates.get(chatId).equals("creating_game_time")){
             try {
                 if (!DateTools.controlDate(messageText)) {
-                    sendMessage("Bad date format or range. Please write date again: ", chatId);
+                    sendMessage("Bad date format or range. Please write date again: ", chatId, null);
                 } else {
-                    LocalDate date = DateTools.parseDate(messageText);
+                    LocalDate date = DateTools.parseStringToLocalDate(messageText);
                     newGame.setDate(date);
                     sendMessage("Please choose a time four your game. Time must " +
-                            "have format (HH:mm).", chatId);
+                            "have format (HH:mm).", chatId, null);
                     userStates.replace(chatId, "creating_game_final");
                 }
             }catch (DateTimeParseException e){
-                sendMessage("Bad date format or range. Please write date again: ", chatId);
+                sendMessage("Bad date format or range. Please write date again: ", chatId, null);
             }
         } else if (userStates.get(chatId).equals("creating_game_final")){
             LocalTime time;
             String message;
             try {
-                time = TimeTools.parseTime(messageText);
+                time = TimeTools.parseStringToLocalTime(messageText);
                 newGame.setTime(time);
                 message = "Your game is successfully created!";
                 UserEntity master = userService.getUserEntity(actualUser);
@@ -384,12 +410,174 @@ public class TestingBot extends TelegramLongPollingBot {
             } catch (UserIsNotRegisteredException e){
                 message = "Something went wrong. UserIsNotRegisteredException happened.";
             }
-            sendMessage(message, chatId);
+            sendMessage(message, chatId, null);
         }
     }
     public void showMasterGames(long chatId, User actualUser){
+        try {
+            UserEntity master = userService.getUserEntity(actualUser);
+            Set<GameEntity> masterGames = gameService.getAllGamesByMaster(master);
+            String message = "Your games:";
+            int gameAmount = masterGames.size();
+            int numbering = 1;
+            for (GameEntity game : masterGames){
+                message += "\n"+numbering+")" +
+                        "\nName: "+game.getName()+
+                        "\nDate: "+DateTools.parseLocalDateToString(game.getDate())+
+                        "\nTime: "+TimeTools.parseLocalTimeToString(game.getTime())+
+                        "\nPlayers: "+game.getPlayers().size()+
+                        "\n";
+                numbering++;
+            }
+            message += "\nChoose a game you want to edit:";
 
+            InlineKeyboardMarkup markupLine = new InlineKeyboardMarkup();
+            List<List<InlineKeyboardButton>> rowsInLine = new ArrayList<>();
+            int rowAmount;
+            if (gameAmount%2 == 0){
+                rowAmount = gameAmount/2;
+            } else {
+                rowAmount = ((gameAmount-1)/2)+1;
+            }
+            for (int i = 1; i<=rowAmount; i++){
+                List<InlineKeyboardButton> rowInLine = new ArrayList<>();
+                rowsInLine.add(rowInLine);
+            }
+            int numberingRows = 0;
+            for (GameEntity game : masterGames){
+                InlineKeyboardButton gameButton = new InlineKeyboardButton();
+                gameButton.setText(game.getName());
+                gameButton.setCallbackData("editingMasterGame");
+                editedGameName = game.getName();
+                List<InlineKeyboardButton> actualRow = rowsInLine.get(numberingRows);
+                if (actualRow.size()<2){
+                    actualRow.add(gameButton);
+                } else {
+                    actualRow = rowsInLine.get(numberingRows+1);
+                    actualRow.add(gameButton);
+                    numberingRows++;
+                }
+            }
+            markupLine.setKeyboard(rowsInLine);
+            sendMessage(message, chatId, markupLine);
+        } catch (UserIsNotRegisteredException e){
+            sendMessage("Something went wrong. UserIsNotRegisteredException happened.", chatId, null);
+        } catch (MasterHaveNoGamesException e){
+            sendMessage(e.getMessage(), chatId, null);
+            showMenu(chatId, actualUser);
+        }
     }
+    public void editMasterGame(long chatId, String messageText, User actualUser){
+        if (userStates.get(chatId).equals("editing_games_action")) {
+            InlineKeyboardMarkup markupLine = new InlineKeyboardMarkup();
+            List<List<InlineKeyboardButton>> rowsInLine = new ArrayList<>();
+            List<InlineKeyboardButton> row1 = new ArrayList<>();
+            List<InlineKeyboardButton> row2 = new ArrayList<>();
+            InlineKeyboardButton editNameButton = new InlineKeyboardButton();
+            editNameButton.setText("Edit Name");
+            editNameButton.setCallbackData("editingGameName");
+            row1.add(editNameButton);
+
+            InlineKeyboardButton editDateButton = new InlineKeyboardButton();
+            editDateButton.setText("Edit Date");
+            editDateButton.setCallbackData("editingGameDate");
+            row1.add(editDateButton);
+
+            InlineKeyboardButton editTimeButton = new InlineKeyboardButton();
+            editTimeButton.setText("Edit Time");
+            editTimeButton.setCallbackData("editingGameTime");
+            row2.add(editTimeButton);
+
+            InlineKeyboardButton deleteGameButton = new InlineKeyboardButton();
+            deleteGameButton.setText("Delete Game");
+            deleteGameButton.setCallbackData("deletingGame");
+            row2.add(deleteGameButton);
+
+            rowsInLine.add(row1);
+            rowsInLine.add(row2);
+            markupLine.setKeyboard(rowsInLine);
+            sendMessage("Please choose action: ", chatId, markupLine);
+        } else if (userStates.get(chatId).equals("editing_games_name")){
+            sendMessage("Please write to chat new name for a game: ", chatId, null);
+            userStates.replace(chatId, "editing_games_name_control");
+        } else if (userStates.get(chatId).equals("editing_games_date")){
+            sendMessage("Please write to chat new date for a game: ", chatId, null);
+            userStates.replace(chatId, "editing_games_date_control");
+        } else if (userStates.get(chatId).equals("editing_games_time")){
+            sendMessage("Please write to chat new time for a game: ", chatId, null);
+            userStates.replace(chatId, "editing_games_time_control");
+        } else if (userStates.get(chatId).equals("editing_games_delete")){
+            InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
+            List<List<InlineKeyboardButton>> rowsInLine = new ArrayList<>();
+            List<InlineKeyboardButton> row = new ArrayList<>();
+            InlineKeyboardButton yesButton = new InlineKeyboardButton();
+            yesButton.setCallbackData("deletingGameYes");
+            yesButton.setText("Yes");
+            InlineKeyboardButton noButton = new InlineKeyboardButton();
+            yesButton.setCallbackData("deletingGameNo");
+            yesButton.setText("No");
+            row.add(yesButton);
+            row.add(noButton);
+            rowsInLine.add(row);
+            markup.setKeyboard(rowsInLine);
+            sendMessage("Are you sure, you want to delete this game?", chatId, markup);
+        } else if (userStates.get(chatId).equals("editing_games_name_control")){
+            if (gameService.gameNameIsFree(messageText)){
+                try{
+                    gameService.changeGameData("name", messageText, editedGameName);
+                    sendMessage("Name was successfully changed", chatId, null);
+                    editedGameName = null;
+                    userStates.replace(chatId, "default");
+                    showMenu(chatId, actualUser);
+                } catch (NoSuchGameException | BadDataTypeException e){
+                    e.printStackTrace();
+                    sendMessage("Something went wrong, please try again.", chatId, null);
+                }
+            }else{
+                sendMessage("This game name is already used. Please choose other name: ", chatId, null);
+            }
+        } else if (userStates.get(chatId).equals("editing_games_date_control")){
+            if (DateTools.controlDate(messageText)){
+                try{
+                    gameService.changeGameData("date", messageText, editedGameName);
+                    sendMessage("Date was successfully changed", chatId, null);
+                    editedGameName = null;
+                    userStates.replace(chatId, "default");
+                    showMenu(chatId, actualUser);
+                } catch (NoSuchGameException | BadDataTypeException e){
+                    e.printStackTrace();
+                    sendMessage("Something went wrong, please try again.", chatId, null);
+                }
+            }else{
+                sendMessage("Bad date format or range. Please write date again: ", chatId, null);
+            }
+        } else if (userStates.get(chatId).equals("editing_games_time_control")){
+            try {
+                TimeTools.parseStringToLocalTime(messageText);
+                gameService.changeGameData("time", messageText, editedGameName);
+                sendMessage("Time was successfully changed.", chatId, null);
+                editedGameName = null;
+                userStates.replace(chatId, "default");
+                showMenu(chatId, actualUser);
+            } catch (DateTimeParseException e){
+                sendMessage("Bad time format. Please write time again: ", chatId, null);
+            } catch (NoSuchGameException | BadDataTypeException e){
+                e.printStackTrace();
+                sendMessage("Something went wrong, please try again.", chatId, null);
+            }
+        } else if (userStates.get(chatId).equals("editing_games_delete_control")){
+            try {
+                gameService.deleteGameByName(editedGameName);
+                editedGameName = null;
+                userStates.replace(chatId, "default");
+                sendMessage("Game was successfully deleted.", chatId, null);
+            } catch (NoSuchGameException e){
+                e.printStackTrace();
+                sendMessage("Something went wrong, please try again.", chatId, null);
+            }
+        }
+    }
+
 
     private void emptyRecycleBin(long chatId){
         for (Integer messageId : messageRecycleBin.get(chatId)){
@@ -407,10 +595,13 @@ public class TestingBot extends TelegramLongPollingBot {
             e.printStackTrace();
         }
     }
-    private void sendMessage(String messageText, long chatId){
+    private void sendMessage(String messageText, long chatId, InlineKeyboardMarkup markup){
         SendMessage message = new SendMessage();
         message.setChatId(chatId);
         message.setText(messageText);
+        if (markup != null){
+            message.setReplyMarkup(markup);
+        }
         try{
             Message sentMessage = execute(message);
             messageRecycleBin.put(chatId, sentMessage.getMessageId());

@@ -10,5 +10,6 @@ import java.util.Set;
 public interface GameRepository extends CrudRepository<GameEntity, Long> {
     Set<GameEntity> findAllByMaster (UserEntity master);
     Optional<GameEntity> findByName (String name);
+    void deleteByName (String name);
 
 }
