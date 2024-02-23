@@ -2,13 +2,22 @@ package org.example;
 
 import com.google.common.collect.*;
 import com.sun.jna.platform.win32.WinDef;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import jakarta.transaction.Transactional;
 import okhttp3.*;
 import org.checkerframework.checker.units.qual.A;
+import org.example.data.entities.GameEntity;
+import org.example.data.entities.UserEntity;
 import org.example.models.exceptions.NicknameAlreadyExistsException;
 import org.example.models.exceptions.UserAlreadyRegisteredException;
 import org.example.models.exceptions.UserIsNotMasterException;
 import org.example.models.exceptions.UserIsNotRegisteredException;
+import org.example.models.services.GameService;
 import org.example.models.services.UserService;
+import org.example.tools.DateTools;
+import org.example.tools.TimeTools;
+import org.hibernate.Hibernate;
 import org.jetbrains.annotations.Nullable;
 import org.jvnet.hk2.component.MultiMap;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,14 +32,20 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKe
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import java.io.IOException;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.format.DateTimeParseException;
 import java.util.*;
 
 @Component
 public class TestingBot extends TelegramLongPollingBot {
     @Autowired
+    private GameService gameService;
+    @Autowired
     private UserService userService;
-    private Map<Long, String> userStates = new HashMap<>();
-    private Multimap<Long, Integer> messageRecycleBin = ArrayListMultimap.create();
+    private final Map<Long, String> userStates = new HashMap<>();
+    private final Multimap<Long, Integer> messageRecycleBin = ArrayListMultimap.create();
+    private GameEntity newGame;
     @Override
     public void onUpdateReceived(Update update) {
         if (update.hasMessage() && update.getMessage().hasText()){
@@ -41,10 +56,12 @@ public class TestingBot extends TelegramLongPollingBot {
 
             emptyRecycleBin(chatId);
             if (update.getMessage().getText().equals("/start")||update.getMessage().getText().equals("/menu")) {
-                mainMenu(chatId, actualUser);
+                showMenu(chatId, actualUser);
             }
             if (userStates.get(chatId).equals("registration_confirm_master")){
                 registration(chatId, actualUser, messageText);
+            } else if (userStates.get(chatId).contains("creating")){
+                createGame(chatId, actualUser, messageText);
             }
 
         } else if (update.hasCallbackQuery()){
@@ -68,6 +85,9 @@ public class TestingBot extends TelegramLongPollingBot {
                     userStates.replace(chatId, "deleting_choice");
                 }
                 deletingAccount(chatId, actualUser, update);
+            } else if (callData.equals("createGame")){
+                userStates.replace(chatId, "creating_game_name");
+                createGame(chatId, actualUser, messageText);
             }
         }
     }
@@ -181,7 +201,7 @@ public class TestingBot extends TelegramLongPollingBot {
                 e.printStackTrace();
             }
             userStates.replace(chatId, "default");
-            mainMenu(chatId, actualUser);
+            showMenu(chatId, actualUser);
         } else if (userStates.get(chatId).equals("registration_confirm_master")){
             SendMessage message = new SendMessage();
             message.setChatId(chatId);
@@ -200,7 +220,7 @@ public class TestingBot extends TelegramLongPollingBot {
                 e.printStackTrace();
             }
             if (userStates.get(chatId).equals("default")) {
-                mainMenu(chatId, actualUser);
+                showMenu(chatId, actualUser);
             }
         }
     }
@@ -253,7 +273,7 @@ public class TestingBot extends TelegramLongPollingBot {
                     e.printStackTrace();
                 }
                 userStates.replace(chatId,"default");
-                mainMenu(chatId, actualUser);
+                showMenu(chatId, actualUser);
             }else if (callData.equals("deletingNo")){
                 String answer = "Your account wasn't deleted.";
                 SendMessage message = new SendMessage();
@@ -266,9 +286,109 @@ public class TestingBot extends TelegramLongPollingBot {
                     e.printStackTrace();
                 }
                 userStates.replace(chatId,"default");
-                mainMenu(chatId, actualUser);
+                showMenu(chatId, actualUser);
             }
         }
+    }
+
+
+    public void masterMenu(long chatID, User actualUser){
+        userStates.replace(chatID, "default");
+        UserEntity user;
+        try {
+            user = userService.getUserEntity(actualUser);
+        }catch (UserIsNotRegisteredException e){
+            user = null;
+            e.printStackTrace();
+        }
+        SendMessage message = new SendMessage();
+        message.setChatId(chatID);
+        message.setText("Hello "+actualUser.getFirstName()+", your master nickname is "+user.getMasterNickname()+"\n" +
+                "THIS IS MAIN MENU");
+
+        InlineKeyboardMarkup markupInline = new InlineKeyboardMarkup();
+        List<List<InlineKeyboardButton>> rowsInLine = new ArrayList<>();
+        List<InlineKeyboardButton> rowInLine1 = new ArrayList<>();
+        List<InlineKeyboardButton> rowInLine2 = new ArrayList<>();
+
+        InlineKeyboardButton deletingButton = new InlineKeyboardButton();
+        deletingButton.setText("Delete account");
+        deletingButton.setCallbackData("delete");
+
+        InlineKeyboardButton createGameButton = new InlineKeyboardButton();
+        createGameButton.setText("New game");
+        createGameButton.setCallbackData("createGame");
+
+        InlineKeyboardButton editGamesButton = new InlineKeyboardButton();
+        editGamesButton.setText("Edit games");
+        editGamesButton.setCallbackData("editGame");
+
+        rowInLine1.add(deletingButton);
+        rowInLine2.add(createGameButton);
+        rowInLine2.add(editGamesButton);
+        rowsInLine.add(rowInLine1);
+        rowsInLine.add(rowInLine2);
+
+        markupInline.setKeyboard(rowsInLine);
+        message.setReplyMarkup(markupInline);
+
+        try{
+            Message sentMessage = execute(message);
+            messageRecycleBin.put(chatID, sentMessage.getMessageId());
+        } catch (TelegramApiException e){
+            e.printStackTrace();
+        }
+    }
+    public void createGame(long chatId, User actualUser, String messageText){
+        if (userStates.get(chatId).equals("creating_game_name")){
+            newGame = new GameEntity();
+            sendMessage("Please choose a unique name for your game: ", chatId);
+            userStates.replace(chatId, "creating_game_date");
+        } else if (userStates.get(chatId).equals("creating_game_date")){
+            if (!gameService.gameNameIsFree(messageText)){
+                sendMessage("This game name is already used. Please choose other name: ", chatId);
+            }else {
+                newGame.setName(messageText);
+                sendMessage("Please choose a date for your game. Date must " +
+                        "have format (dd.MM.yyyy) and be at least 1 week away but no more than 2 years away.", chatId);
+                userStates.replace(chatId, "creating_game_time");
+            }
+        } else if (userStates.get(chatId).equals("creating_game_time")){
+            try {
+                if (!DateTools.controlDate(messageText)) {
+                    sendMessage("Bad date format or range. Please write date again: ", chatId);
+                } else {
+                    LocalDate date = DateTools.parseDate(messageText);
+                    newGame.setDate(date);
+                    sendMessage("Please choose a time four your game. Time must " +
+                            "have format (HH:mm).", chatId);
+                    userStates.replace(chatId, "creating_game_final");
+                }
+            }catch (DateTimeParseException e){
+                sendMessage("Bad date format or range. Please write date again: ", chatId);
+            }
+        } else if (userStates.get(chatId).equals("creating_game_final")){
+            LocalTime time;
+            String message;
+            try {
+                time = TimeTools.parseTime(messageText);
+                newGame.setTime(time);
+                message = "Your game is successfully created!";
+                UserEntity master = userService.getUserEntity(actualUser);
+                gameService.create(newGame.getName(), newGame.getDate(), newGame.getTime(), master);
+                userStates.replace(chatId, "default");
+                newGame = null;
+                showMenu(chatId, actualUser);
+            } catch (DateTimeParseException e){
+                message = "Bad time format. Please write time again: ";
+            } catch (UserIsNotRegisteredException e){
+                message = "Something went wrong. UserIsNotRegisteredException happened.";
+            }
+            sendMessage(message, chatId);
+        }
+    }
+    public void showMasterGames(long chatId, User actualUser){
+
     }
 
     private void emptyRecycleBin(long chatId){
@@ -287,6 +407,30 @@ public class TestingBot extends TelegramLongPollingBot {
             e.printStackTrace();
         }
     }
+    private void sendMessage(String messageText, long chatId){
+        SendMessage message = new SendMessage();
+        message.setChatId(chatId);
+        message.setText(messageText);
+        try{
+            Message sentMessage = execute(message);
+            messageRecycleBin.put(chatId, sentMessage.getMessageId());
+        }catch (TelegramApiException e){
+            e.printStackTrace();
+        }
+    }
+    private void showMenu(long chatId, User actualUser){
+        try{
+            UserEntity user = userService.getUserEntity(actualUser);
+            if (user.isMaster()){
+                masterMenu(chatId, actualUser);
+            } else {
+                mainMenu(chatId, actualUser);
+            }
+        } catch (UserIsNotRegisteredException e){
+            mainMenu(chatId, actualUser);
+        }
+    }
+
 
 
 

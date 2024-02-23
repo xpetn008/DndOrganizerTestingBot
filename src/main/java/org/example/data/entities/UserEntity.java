@@ -2,6 +2,9 @@ package org.example.data.entities;
 
 import jakarta.persistence.*;
 
+import java.util.HashSet;
+import java.util.Set;
+
 @Entity
 public class UserEntity {
     @Id
@@ -15,6 +18,10 @@ public class UserEntity {
     private boolean master;
     @Column(name = "master_nickname")
     private String masterNickname;
+    @OneToMany(mappedBy = "master")
+    private Set<GameEntity> masterGames = new HashSet<>();
+    @ManyToMany(mappedBy = "players")
+    private Set<GameEntity> games = new HashSet<>();
 
     public UserEntity (){}
     public UserEntity (String username, Long telegramId, boolean master){
@@ -56,5 +63,21 @@ public class UserEntity {
 
     public void setMasterNickname(String masterNickname) {
         this.masterNickname = masterNickname;
+    }
+
+    public Set<GameEntity> getMasterGames() {
+        return masterGames;
+    }
+
+    public void setMasterGames(Set<GameEntity> masterGames) {
+        this.masterGames = masterGames;
+    }
+
+    public Set<GameEntity> getGames() {
+        return games;
+    }
+
+    public void setGames(Set<GameEntity> games) {
+        this.games = games;
     }
 }

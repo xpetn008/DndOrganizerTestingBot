@@ -1,5 +1,6 @@
 package org.example.models.services;
 
+import jakarta.transaction.Transactional;
 import org.example.data.entities.UserEntity;
 import org.example.data.repositories.UserRepository;
 import org.example.models.exceptions.NicknameAlreadyExistsException;
