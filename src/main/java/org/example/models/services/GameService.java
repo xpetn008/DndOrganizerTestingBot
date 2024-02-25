@@ -15,7 +15,6 @@ public interface GameService {
     void create (String name, LocalDate date, LocalTime time, UserEntity master);
     boolean gameNameIsFree (String name);
     Set<GameEntity> getAllGamesByMaster (UserEntity master) throws MasterHaveNoGamesException;
-    void deleteGameByName (String name) throws NoSuchGameException;
-    GameEntity getGameByName (String name) throws NoSuchGameException;
-    void changeGameData (String type, String data, String gameName) throws BadDataTypeException, NoSuchGameException;
+    void deleteGameById (Long id) throws NoSuchGameException;
+    void changeGameData (String type, String data, Long gameId) throws BadDataTypeException, NoSuchGameException;
 }

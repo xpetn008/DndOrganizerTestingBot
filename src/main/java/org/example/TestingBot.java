@@ -42,7 +42,7 @@ public class TestingBot extends TelegramLongPollingBot {
     private UserService userService;
     private final Map<Long, String> userStates = new HashMap<>();
     private final Multimap<Long, Integer> messageRecycleBin = ArrayListMultimap.create();
-    private String editedGameName;
+    private Long editedGameId;
     private GameEntity newGame;
     @Override
     public void onUpdateReceived(Update update) {
@@ -88,10 +88,11 @@ public class TestingBot extends TelegramLongPollingBot {
             } else if (callData.equals("createGame")){
                 userStates.replace(chatId, "creating_game_name");
                 createGame(chatId, actualUser, messageText);
-            } else if (callData.equals("editGames") || callData.equals("editingMasterGame") || callData.contains("editingGame") || callData.equals("deletingGame")){
+            } else if (callData.equals("editGames") || callData.contains("editingMasterGame_") || callData.contains("editingGame")){
                 if (callData.equals("editGames")){
                     showMasterGames(chatId, actualUser);
-                } else if (callData.equals("editingMasterGame")){
+                } else if (callData.contains("editingMasterGame")){
+                    editedGameId = Long.parseLong(callData.substring(18));
                     userStates.replace(chatId, "editing_games_action");
                     editMasterGame(chatId, messageText, actualUser);
                 } else if (callData.contains("editingGame")){
@@ -101,16 +102,17 @@ public class TestingBot extends TelegramLongPollingBot {
                         userStates.replace(chatId, "editing_games_date");
                     } else if (callData.equals("editingGameTime")){
                         userStates.replace(chatId, "editing_games_time");
-                    } else if (callData.equals("deletingGame")){
-                        userStates.replace(chatId, "editing_games_delete");
                     }
                     editMasterGame(chatId, messageText, actualUser);
                 }
-            } else if (callData.contains("deletingGames")){
-                if (callData.equals("deletingGamesYes")){
+            } else if (callData.equals("deletingGame")){
+                userStates.replace(chatId, "editing_games_delete");
+                editMasterGame(chatId, messageText, actualUser);
+            } else if (callData.equals("deletingGameYes") || callData.equals("deletingGameNo")){
+                if (callData.equals("deletingGameYes")){
                     userStates.replace(chatId, "editing_games_delete_control");
                     editMasterGame(chatId, messageText, actualUser);
-                } else if (callData.equals("deletingGamesNo")){
+                } else{
                     userStates.replace(chatId, "default");
                     showMenu(chatId, actualUser);
                 }
@@ -447,8 +449,7 @@ public class TestingBot extends TelegramLongPollingBot {
             for (GameEntity game : masterGames){
                 InlineKeyboardButton gameButton = new InlineKeyboardButton();
                 gameButton.setText(game.getName());
-                gameButton.setCallbackData("editingMasterGame");
-                editedGameName = game.getName();
+                gameButton.setCallbackData("editingMasterGame_"+game.getId());
                 List<InlineKeyboardButton> actualRow = rowsInLine.get(numberingRows);
                 if (actualRow.size()<2){
                     actualRow.add(gameButton);
@@ -514,8 +515,8 @@ public class TestingBot extends TelegramLongPollingBot {
             yesButton.setCallbackData("deletingGameYes");
             yesButton.setText("Yes");
             InlineKeyboardButton noButton = new InlineKeyboardButton();
-            yesButton.setCallbackData("deletingGameNo");
-            yesButton.setText("No");
+            noButton.setCallbackData("deletingGameNo");
+            noButton.setText("No");
             row.add(yesButton);
             row.add(noButton);
             rowsInLine.add(row);
@@ -524,9 +525,9 @@ public class TestingBot extends TelegramLongPollingBot {
         } else if (userStates.get(chatId).equals("editing_games_name_control")){
             if (gameService.gameNameIsFree(messageText)){
                 try{
-                    gameService.changeGameData("name", messageText, editedGameName);
+                    gameService.changeGameData("name", messageText, editedGameId);
                     sendMessage("Name was successfully changed", chatId, null);
-                    editedGameName = null;
+                    editedGameId = null;
                     userStates.replace(chatId, "default");
                     showMenu(chatId, actualUser);
                 } catch (NoSuchGameException | BadDataTypeException e){
@@ -539,9 +540,9 @@ public class TestingBot extends TelegramLongPollingBot {
         } else if (userStates.get(chatId).equals("editing_games_date_control")){
             if (DateTools.controlDate(messageText)){
                 try{
-                    gameService.changeGameData("date", messageText, editedGameName);
+                    gameService.changeGameData("date", messageText, editedGameId);
                     sendMessage("Date was successfully changed", chatId, null);
-                    editedGameName = null;
+                    editedGameId = null;
                     userStates.replace(chatId, "default");
                     showMenu(chatId, actualUser);
                 } catch (NoSuchGameException | BadDataTypeException e){
@@ -554,9 +555,9 @@ public class TestingBot extends TelegramLongPollingBot {
         } else if (userStates.get(chatId).equals("editing_games_time_control")){
             try {
                 TimeTools.parseStringToLocalTime(messageText);
-                gameService.changeGameData("time", messageText, editedGameName);
+                gameService.changeGameData("time", messageText, editedGameId);
                 sendMessage("Time was successfully changed.", chatId, null);
-                editedGameName = null;
+                editedGameId = null;
                 userStates.replace(chatId, "default");
                 showMenu(chatId, actualUser);
             } catch (DateTimeParseException e){
@@ -567,10 +568,11 @@ public class TestingBot extends TelegramLongPollingBot {
             }
         } else if (userStates.get(chatId).equals("editing_games_delete_control")){
             try {
-                gameService.deleteGameByName(editedGameName);
-                editedGameName = null;
+                gameService.deleteGameById(editedGameId);
+                editedGameId = null;
                 userStates.replace(chatId, "default");
                 sendMessage("Game was successfully deleted.", chatId, null);
+                showMenu(chatId, actualUser);
             } catch (NoSuchGameException e){
                 e.printStackTrace();
                 sendMessage("Something went wrong, please try again.", chatId, null);

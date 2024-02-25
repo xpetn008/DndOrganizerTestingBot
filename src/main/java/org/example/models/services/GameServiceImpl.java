@@ -50,27 +50,21 @@ public class GameServiceImpl implements GameService{
     }
     @Override
     @Transactional
-    public void deleteGameByName (String name) throws NoSuchGameException {
-        if (gameNameIsFree(name)){
-            throw new NoSuchGameException("There is no such game.");
+    public void deleteGameById (Long id) throws NoSuchGameException {
+        System.out.println("DELETING METHOD RUNS");
+        GameEntity game = gameRepository.findById(id).orElse(null);
+        if (game == null){
+            throw new NoSuchGameException("There is no such game");
         }
-        gameRepository.deleteByName(name);
+        gameRepository.deleteById(id);
     }
     @Override
     @Transactional
-    public GameEntity getGameByName (String name) throws NoSuchGameException{
-        if (gameNameIsFree(name)){
-            throw new NoSuchGameException("There is no such game.");
-        }
-        return gameRepository.findByName(name).orElseThrow();
-    }
-    @Override
-    @Transactional
-    public void changeGameData(String type, String data, String gameName) throws BadDataTypeException, NoSuchGameException{
+    public void changeGameData(String type, String data, Long gameId) throws BadDataTypeException, NoSuchGameException{
         if (!type.equals("name") && !type.equals("date") && !type.equals("time")){
             throw new BadDataTypeException("Bad data type, only name, date or time allowed");
         }
-        GameEntity editedGame = getGameByName(gameName);
+        GameEntity editedGame = gameRepository.findById(gameId).orElseThrow();
         if (type.equals("name")){
             editedGame.setName(data);
         } else if (type.equals("date")){
