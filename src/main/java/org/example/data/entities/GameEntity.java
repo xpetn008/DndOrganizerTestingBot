@@ -26,15 +26,17 @@ public class GameEntity {
             joinColumns = {@JoinColumn(name = "game_id")},
             inverseJoinColumns = {@JoinColumn(name = "player_id")})
     Set<UserEntity> players = new HashSet<>();
+    @Column(name = "type")
+    private GameType gameType;
 
     public GameEntity(){}
-    public GameEntity(String name, LocalDate date, LocalTime time, UserEntity master){
+    public GameEntity(String name, LocalDate date, LocalTime time, UserEntity master, GameType gameType){
         this.name = name;
         this.date = date;
         this.time = time;
         this.master = master;
+        this.gameType = gameType;
     }
-
     public Long getId() {
         return id;
     }
@@ -77,5 +79,13 @@ public class GameEntity {
 
     public void setPlayers(Set<UserEntity> players) {
         this.players = players;
+    }
+
+    public GameType getGameType() {
+        return gameType;
+    }
+
+    public void setGameType(GameType gameType) {
+        this.gameType = gameType;
     }
 }

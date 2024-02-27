@@ -1,7 +1,9 @@
 package org.example.tools;
 
+import java.time.DateTimeException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 
 public class DateTools {
     public static boolean controlDateChars (String date){   //@param - Date String type (dd.MM.yyyy)
@@ -29,15 +31,15 @@ public class DateTools {
             return true;
         }
     }
-    public static boolean controlDate (String dateString){          //@param - Date String type dd.MM.yyyy
-        if (controlDateChars(dateString)){                          //controls date chars, parsing date to LocalDate variable and controls if date is at least 1 week away, but no more than 2 years away
+    public static boolean controlDate (String dateString) throws DateTimeException {          //@param - Date String type dd.MM.yyyy
+        if (controlDateChars(dateString)) {                          //controls date chars, parsing date to LocalDate variable and controls if date is at least 1 week away, but no more than 2 years away
             LocalDate date = parseStringToLocalDate(dateString);                 //returns true or false
             LocalDate currentDate = LocalDate.now();
             LocalDate nextWeek = currentDate.plusWeeks(1);
             LocalDate afterTwoYears = currentDate.plusYears(2);
-            if (date.isAfter(nextWeek) && date.isBefore(afterTwoYears)){
+            if (date.isAfter(nextWeek) && date.isBefore(afterTwoYears)) {
                 return true;
-            }else{
+            } else {
                 return false;
             }
         } else {
@@ -45,7 +47,7 @@ public class DateTools {
         }
     }
     public static LocalDate parseStringToLocalDate(String dateString){                           //@param - Date String type dd.MM.yyyy
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd.MM.yyyy");    //returns - LocalDate variable type dd.MM.yyyy
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd.MM.yyyy");                //returns - LocalDate variable type dd.MM.yyyy
         return LocalDate.parse(dateString, formatter);
     }
     public static String parseLocalDateToString(LocalDate date){

@@ -2,6 +2,7 @@ package org.example.models.services;
 
 import jakarta.transaction.Transactional;
 import org.example.data.entities.GameEntity;
+import org.example.data.entities.GameType;
 import org.example.data.entities.UserEntity;
 import org.example.data.repositories.GameRepository;
 import org.example.models.exceptions.BadDataTypeException;
@@ -23,12 +24,13 @@ public class GameServiceImpl implements GameService{
     private GameRepository gameRepository;
 
     @Override
-    public void create(String name, LocalDate date, LocalTime time, UserEntity master){
+    public void create(String name, LocalDate date, LocalTime time, UserEntity master, GameType gameType){
         GameEntity newGame = new GameEntity();
         newGame.setName(name);
         newGame.setDate(date);
         newGame.setTime(time);
         newGame.setMaster(master);
+        newGame.setGameType(gameType);
         gameRepository.save(newGame);
     }
     @Override
@@ -60,17 +62,16 @@ public class GameServiceImpl implements GameService{
     }
     @Override
     @Transactional
-    public void changeGameData(String type, String data, Long gameId) throws BadDataTypeException, NoSuchGameException{
-        if (!type.equals("name") && !type.equals("date") && !type.equals("time")){
+    public void changeGameData(String type, String data, Long gameId) throws BadDataTypeException{
+        if (!type.equals("name") && !type.equals("date") && !type.equals("time") && !type.equals("type")){
             throw new BadDataTypeException("Bad data type, only name, date or time allowed");
         }
         GameEntity editedGame = gameRepository.findById(gameId).orElseThrow();
-        if (type.equals("name")){
-            editedGame.setName(data);
-        } else if (type.equals("date")){
-            editedGame.setDate(DateTools.parseStringToLocalDate(data));
-        } else if (type.equals("time")){
-            editedGame.setTime(TimeTools.parseStringToLocalTime(data));
+        switch (type) {
+            case "name" -> editedGame.setName(data);
+            case "date" -> editedGame.setDate(DateTools.parseStringToLocalDate(data));
+            case "time" -> editedGame.setTime(TimeTools.parseStringToLocalTime(data));
+            case "type" -> editedGame.setGameType(GameType.parseGameType(data));
         }
         gameRepository.save(editedGame);
     }

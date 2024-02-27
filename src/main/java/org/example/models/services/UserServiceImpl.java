@@ -2,6 +2,7 @@ package org.example.models.services;
 
 import jakarta.transaction.Transactional;
 import org.example.data.entities.UserEntity;
+import org.example.data.repositories.GameRepository;
 import org.example.data.repositories.UserRepository;
 import org.example.models.exceptions.NicknameAlreadyExistsException;
 import org.example.models.exceptions.UserAlreadyRegisteredException;
@@ -18,6 +19,8 @@ import java.util.List;
 public class UserServiceImpl implements UserService{
     @Autowired
     private UserRepository userRepository;
+    @Autowired
+    private GameRepository gameRepository;
 
     @Override
     public void create (User user, boolean master) throws UserAlreadyRegisteredException {
@@ -30,11 +33,15 @@ public class UserServiceImpl implements UserService{
         userRepository.save(newUser);
     }
     @Override
+    @Transactional
     public void delete (User user) throws UserIsNotRegisteredException {
         if (!isRegistered(user)){
             throw new UserIsNotRegisteredException("User is not registered!");
         }
         UserEntity deletedUser = getUserEntity(user);
+        if (isMaster(user)){
+            gameRepository.deleteAllByMaster(deletedUser);
+        }
         userRepository.delete(deletedUser);
     }
     @Override
