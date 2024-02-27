@@ -2,9 +2,11 @@ package org.example.models.services;
 
 import jakarta.transaction.Transactional;
 import org.example.data.entities.GameEntity;
-import org.example.data.entities.GameType;
+import org.example.data.entities.enums.GameRegion;
+import org.example.data.entities.enums.GameType;
 import org.example.data.entities.UserEntity;
 import org.example.data.repositories.GameRepository;
+import org.example.models.exceptions.BadDataException;
 import org.example.models.exceptions.BadDataTypeException;
 import org.example.models.exceptions.MasterHaveNoGamesException;
 import org.example.models.exceptions.NoSuchGameException;
@@ -24,13 +26,16 @@ public class GameServiceImpl implements GameService{
     private GameRepository gameRepository;
 
     @Override
-    public void create(String name, LocalDate date, LocalTime time, UserEntity master, GameType gameType){
+    public void create(String name, LocalDate date, LocalTime time, UserEntity master, GameType gameType, String description, int maxPlayers, GameRegion region) throws BadDataException{
         GameEntity newGame = new GameEntity();
         newGame.setName(name);
         newGame.setDate(date);
         newGame.setTime(time);
         newGame.setMaster(master);
         newGame.setGameType(gameType);
+        newGame.setDescription(description);
+        newGame.setMaxPlayers(maxPlayers);
+        newGame.setRegion(region);
         gameRepository.save(newGame);
     }
     @Override
@@ -62,16 +67,51 @@ public class GameServiceImpl implements GameService{
     }
     @Override
     @Transactional
-    public void changeGameData(String type, String data, Long gameId) throws BadDataTypeException{
-        if (!type.equals("name") && !type.equals("date") && !type.equals("time") && !type.equals("type")){
+    public void changeGameData(String type, String data, Long gameId) throws BadDataTypeException {
+        if (!type.equals("name") && !type.equals("date") && !type.equals("time") && !type.equals("type") && !type.equals("description") && !type.equals("maxPlayers") && !type.equals("region")){
             throw new BadDataTypeException("Bad data type, only name, date or time allowed");
         }
         GameEntity editedGame = gameRepository.findById(gameId).orElseThrow();
         switch (type) {
-            case "name" -> editedGame.setName(data);
+            case "name" -> {
+                try{
+                        editedGame.setName(data);
+                        } catch (BadDataException e){
+                        throw new BadDataTypeException(e.getMessage());
+                        }
+            }
             case "date" -> editedGame.setDate(DateTools.parseStringToLocalDate(data));
             case "time" -> editedGame.setTime(TimeTools.parseStringToLocalTime(data));
             case "type" -> editedGame.setGameType(GameType.parseGameType(data));
+            case "description" -> {
+                try {
+                    editedGame.setDescription(data);
+                } catch (BadDataException e){
+                    throw new BadDataTypeException(e.getMessage());
+                }
+            }
+            case "maxPlayers" -> {
+                String numbers = "0123456789";
+                int similarities = 0;
+                for (int i = 0; i < data.length(); i++){
+                    for (int j = 0; j < numbers.length(); j++){
+                        if (data.charAt(i) == numbers.charAt(j)){
+                            similarities++;
+                        }
+                    }
+                }
+                if (similarities == data.length()) {
+                    try {
+                        editedGame.setMaxPlayers(Integer.parseInt(data));
+                    } catch (BadDataException e){
+                        throw new BadDataTypeException(e.getMessage());
+                    }
+                }
+                else {
+                    throw new BadDataTypeException("This is not a number.");
+                }
+            }
+            case "region" -> editedGame.setRegion(GameRegion.parseGameRegion(data));
         }
         gameRepository.save(editedGame);
     }

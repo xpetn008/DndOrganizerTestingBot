@@ -1,7 +1,6 @@
-package org.example.data.entities;
+package org.example.data.entities.enums;
 
 import org.example.models.exceptions.BadDataTypeException;
-import org.telegram.telegrambots.meta.api.objects.games.Game;
 
 public enum GameType {
     CAMPAIGN, ONESHOT;

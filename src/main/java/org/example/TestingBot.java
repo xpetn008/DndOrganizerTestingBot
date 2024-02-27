@@ -1,27 +1,18 @@
 package org.example;
 
 import com.google.common.collect.*;
-import com.sun.jna.platform.win32.WinDef;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
-import jakarta.transaction.Transactional;
-import okhttp3.*;
-import org.checkerframework.checker.units.qual.A;
 import org.example.data.entities.GameEntity;
-import org.example.data.entities.GameType;
+import org.example.data.entities.enums.GameRegion;
+import org.example.data.entities.enums.GameType;
 import org.example.data.entities.UserEntity;
 import org.example.models.exceptions.*;
 import org.example.models.services.GameService;
 import org.example.models.services.UserService;
 import org.example.tools.DateTools;
 import org.example.tools.TimeTools;
-import org.hibernate.Hibernate;
-import org.jetbrains.annotations.Nullable;
-import org.jvnet.hk2.component.MultiMap;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
-import org.telegram.telegrambots.meta.api.methods.groupadministration.*;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
 import org.telegram.telegrambots.meta.api.objects.*;
@@ -29,7 +20,6 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMa
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
-import java.io.IOException;
 import java.time.DateTimeException;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -75,6 +65,7 @@ public class TestingBot extends TelegramLongPollingBot {
             String messageText = update.getCallbackQuery().getMessage().getText();
             emptyRecycleBin(chatId);
             userStates.putIfAbsent(chatId, "default");
+            String regionCode = callData.substring(callData.length()-2);
 
             if (callData.equals("register") || callData.equals("registerMaster") || callData.equals("registerPlayer")){
                 if (callData.equals("register")) {
@@ -90,7 +81,7 @@ public class TestingBot extends TelegramLongPollingBot {
                     userStates.replace(chatId, "deleting_choice");
                 }
                 deletingAccount(chatId, actualUser, update);
-            } else if (callData.equals("createGame") || callData.contains("creatingGameType")){
+            } else if (callData.equals("createGame") || callData.contains("creatingGameType") || callData.contains("creatingGameRegion")){
                 if (callData.equals("createGame")) {
                     userStates.replace(chatId, "creating_game_name");
                     createGame(chatId, actualUser, messageText);
@@ -101,8 +92,11 @@ public class TestingBot extends TelegramLongPollingBot {
                     } else {
                         gameType = "cneshot";
                     }
-                    userStates.replace(chatId, "creating_game_date");
+                    userStates.replace(chatId, "creating_game_region");
                     createGame(chatId, actualUser, gameType);
+                } else if (callData.contains("creatingGameRegion")){
+                    userStates.replace(chatId, "creating_game_date");
+                    createGame(chatId, actualUser, regionCode);
                 }
             } else if (callData.equals("editGames") || callData.contains("editingMasterGame_") || callData.contains("editingGame")){
                 if (callData.equals("editGames")){
@@ -120,6 +114,14 @@ public class TestingBot extends TelegramLongPollingBot {
                         userStates.replace(chatId, "editing_games_time");
                     } else if (callData.equals("editingGameType")){
                         userStates.replace(chatId, "editing_games_type");
+                    } else if (callData.equals("editingGameDescription")){
+                        userStates.replace(chatId, "editing_games_description");
+                    } else if (callData.equals("editingGameMaxPlayers")){
+                        userStates.replace(chatId, "editing_games_maxplayers");
+                    } else if (callData.equals("editingGameRegion")){
+                        userStates.replace(chatId, "editing_games_region");
+                    } else if (callData.contains("editingGameRegion") && userStates.get(chatId).contains("control")){
+                        messageText = regionCode;
                     }
                     editMasterGame(chatId, update, actualUser, messageText);
                 }
@@ -133,6 +135,12 @@ public class TestingBot extends TelegramLongPollingBot {
                 } else{
                     userStates.replace(chatId, "default");
                     showMenu(chatId, actualUser);
+                }
+            } else if (callData.contains("switchTo")){
+                if (callData.equals("switchToMasterMenu")){
+                    masterMenu(chatId, actualUser);
+                } else {
+                    playerMenu(chatId, actualUser);
                 }
             } else {
                 sendMessage("Something went wrong.", chatId, null);
@@ -252,53 +260,72 @@ public class TestingBot extends TelegramLongPollingBot {
         }
         String text = "Hello "+actualUser.getFirstName()+", your master nickname is "+user.getMasterNickname()+"\n" +
                 "THIS IS MAIN MENU";
-
-        InlineKeyboardMarkup markupInline = new InlineKeyboardMarkup();
-        List<List<InlineKeyboardButton>> rowsInLine = new ArrayList<>();
-        List<InlineKeyboardButton> rowInLine1 = new ArrayList<>();
-        List<InlineKeyboardButton> rowInLine2 = new ArrayList<>();
-        InlineKeyboardButton deletingButton = new InlineKeyboardButton();
-        deletingButton.setText("Delete account");
-        deletingButton.setCallbackData("delete");
-        InlineKeyboardButton createGameButton = new InlineKeyboardButton();
-        createGameButton.setText("New game");
-        createGameButton.setCallbackData("createGame");
-        InlineKeyboardButton editGamesButton = new InlineKeyboardButton();
-        editGamesButton.setText("Edit games");
-        editGamesButton.setCallbackData("editGames");
-        rowInLine1.add(deletingButton);
-        rowInLine2.add(createGameButton);
-        rowInLine2.add(editGamesButton);
-        rowsInLine.add(rowInLine1);
-        rowsInLine.add(rowInLine2);
-        markupInline.setKeyboard(rowsInLine);
-        sendMessage(text, chatID, markupInline);
+        InlineKeyboardMarkup markup = createMarkup(4, Map.of(0, "New game", 1, "Edit games",
+                2, "Player menu", 3, "Delete account"), Map.of(0, "createGame", 1, "editGames",
+                2, "switchToPlayerMenu", 3, "delete"));
+        sendMessage(text, chatID, markup);
     }
     public void createGame(long chatId, User actualUser, String messageText){
         if (userStates.get(chatId).equals("creating_game_name")){
             newGame = new GameEntity();
             sendMessage("Please choose a unique name for your game: ", chatId, null);
-            userStates.replace(chatId, "creating_game_type");
-        } else if (userStates.get(chatId).equals("creating_game_type")){
+            userStates.replace(chatId, "creating_game_description");
+        } else if (userStates.get(chatId).equals("creating_game_description")){
             if (!gameService.gameNameIsFree(messageText)){
                 sendMessage("This game name is already used. Please choose other name: ", chatId, null);
             } else {
-                newGame.setName(messageText);
-
-                InlineKeyboardMarkup markup = createMarkup(2, Map.of(0, "Campaign", 1,"One shot"),
+                try {
+                    newGame.setName(messageText);
+                    sendMessage("Please write a short description for your game: ", chatId, null);
+                    userStates.replace(chatId, "creating_game_maxplayers");
+                } catch (BadDataException e){
+                    e.printStackTrace();
+                    sendMessage(e.getMessage(), chatId, null);
+                }
+            }
+        } else if (userStates.get(chatId).equals("creating_game_maxplayers")){
+            try{
+                newGame.setDescription(messageText);
+                sendMessage("Please write max possible amount of players for your game", chatId, null);
+                userStates.replace(chatId, "creating_game_type");
+            }catch (BadDataException e){
+                sendMessage(e.getMessage(), chatId, null);
+            }
+        } else if (userStates.get(chatId).equals("creating_game_type")){
+            try {
+                newGame.setMaxPlayersByString(messageText);
+                InlineKeyboardMarkup markup = createMarkup(2, Map.of(0, "Campaign", 1, "One shot"),
                         Map.of(0, "creatingGameTypeCampaign", 1, "creatingGameTypeOneshot"));
                 sendMessage("Please select a game type: ", chatId, markup);
-                userStates.replace(chatId, "creating_game_date");
+                userStates.replace(chatId, "creating_game_region");
+            } catch (BadDataException e){
+                sendMessage(e.getMessage(), chatId, null);
             }
-        } else if (userStates.get(chatId).equals("creating_game_date")){
+        } else if (userStates.get(chatId).equals("creating_game_region")){
             if (messageText.equals("campaign")){
                 newGame.setGameType(GameType.CAMPAIGN);
             } else {
                 newGame.setGameType(GameType.ONESHOT);
             }
-            sendMessage("Please choose a date for your game. Date must " +
-                    "have format (dd.MM.yyyy) and be at least 1 week away but no more than 2 years away.", chatId, null);
-            userStates.replace(chatId, "creating_game_time");
+            int buttonAmount = GameRegion.values().length;
+            Map<Integer, String> buttonTexts = new HashMap<>();
+            Map<Integer, String> callData = new HashMap<>();
+            for (int i = 0; i < buttonAmount; i++){
+                buttonTexts.put(i, GameRegion.values()[i].toString());
+                callData.put(i, "creatingGameRegion"+GameRegion.values()[i].toString());
+            }
+            InlineKeyboardMarkup markup = createMarkup(buttonAmount, buttonTexts, callData);
+            sendMessage("Please select region:", chatId, markup);
+        } else if (userStates.get(chatId).equals("creating_game_date")){
+            try {
+                newGame.setRegion(GameRegion.parseGameRegion(messageText));
+                sendMessage("Please choose a date for your game. Date must " +
+                        "have format (dd.MM.yyyy) and be at least 1 week away but no more than 2 years away.", chatId, null);
+                userStates.replace(chatId, "creating_game_time");
+            } catch (BadDataTypeException e){
+                sendMessage("Something went wrong! Please try again.", chatId, null);
+                sendMessage(e.getMessage(), chatId, null);
+            }
         } else if (userStates.get(chatId).equals("creating_game_time")){
             try {
                 if (!DateTools.controlDate(messageText)) {
@@ -306,7 +333,7 @@ public class TestingBot extends TelegramLongPollingBot {
                 } else {
                     LocalDate date = DateTools.parseStringToLocalDate(messageText);
                     newGame.setDate(date);
-                    sendMessage("Please choose a time four your game. Time must " +
+                    sendMessage("Please choose a time for your game. Time must " +
                             "have format (HH:mm).", chatId, null);
                     userStates.replace(chatId, "creating_game_final");
                 }
@@ -321,7 +348,7 @@ public class TestingBot extends TelegramLongPollingBot {
                 newGame.setTime(time);
                 message = "Your game is successfully created!";
                 UserEntity master = userService.getUserEntity(actualUser);
-                gameService.create(newGame.getName(), newGame.getDate(), newGame.getTime(), master, newGame.getGameType());
+                gameService.create(newGame.getName(), newGame.getDate(), newGame.getTime(), master, newGame.getGameType(), newGame.getDescription(), newGame.getMaxPlayers(), newGame.getRegion());
                 userStates.replace(chatId, "default");
                 newGame = null;
                 showMenu(chatId, actualUser);
@@ -329,6 +356,9 @@ public class TestingBot extends TelegramLongPollingBot {
                 message = "Bad time format. Please write time again: ";
             } catch (UserIsNotRegisteredException e){
                 message = "Something went wrong. UserIsNotRegisteredException happened.";
+            } catch (BadDataException e){
+                message = e.getMessage();
+                e.printStackTrace();
             }
             sendMessage(message, chatId, null);
         }
@@ -343,9 +373,11 @@ public class TestingBot extends TelegramLongPollingBot {
                 message += "\n"+numbering+")" +
                         "\nName: "+game.getName()+
                         "\nGame type: "+game.getGameType()+
+                        "\nRegion: "+game.getRegion().toFullString()+
                         "\nDate: "+DateTools.parseLocalDateToString(game.getDate())+
                         "\nTime: "+TimeTools.parseLocalTimeToString(game.getTime())+
-                        "\nPlayers: "+game.getPlayers().size()+
+                        "\nPlayers: "+game.getPlayers().size()+"/"+game.getMaxPlayers()+
+                        "\nDescription: "+game.getDescription()+
                         "\n";
                 numbering++;
             }
@@ -370,14 +402,25 @@ public class TestingBot extends TelegramLongPollingBot {
     }
     public void editMasterGame(long chatId, Update update, User actualUser, String messageText){
         if (userStates.get(chatId).equals("editing_games_action")) {
-            InlineKeyboardMarkup markupLine = createMarkup(5, Map.of(0, "Edit Name", 1, "Edit Date",
-                    2, "Edit Time", 3, "Edit Type", 4, "Delete Game"), Map.of(0,
+            InlineKeyboardMarkup markupLine = createMarkup(8, Map.of(0, "Edit Name", 1, "Edit Date",
+                    2, "Edit Time", 3, "Edit Type", 4, "Edit Description", 5, "Edit Max Players", 6, "Edit Region", 7, "Delete Game"), Map.of(0,
                     "editingGameName", 1, "editingGameDate", 2, "editingGameTime",
-                    3, "editingGameType", 4, "deletingGame"));
+                    3, "editingGameType", 4, "editingGameDescription", 5, "editingGameMaxPlayers", 6 , "editingGameRegion", 7, "deletingGame"));
             sendMessage("Please choose action: ", chatId, markupLine);
         } else if (userStates.get(chatId).equals("editing_games_name")){
             sendMessage("Please write to chat new name for a game: ", chatId, null);
             userStates.replace(chatId, "editing_games_name_control");
+        } else if (userStates.get(chatId).equals("editing_games_region")){
+            int buttonAmount = GameRegion.values().length;
+            Map<Integer, String> buttonTexts = new HashMap<>();
+            Map<Integer, String> callData = new HashMap<>();
+            for (int i = 0; i < buttonAmount; i++){
+                buttonTexts.put(i, GameRegion.values()[i].toString());
+                callData.put(i, "editingGameRegion"+GameRegion.values()[i].toString());
+            }
+            InlineKeyboardMarkup markup = createMarkup(buttonAmount, buttonTexts, callData);
+            sendMessage("Please select game region: ", chatId, markup);
+            userStates.replace(chatId, "editing_games_region_control");
         } else if (userStates.get(chatId).equals("editing_games_date")){
             sendMessage("Please write to chat new date for a game: ", chatId, null);
             userStates.replace(chatId, "editing_games_date_control");
@@ -389,6 +432,12 @@ public class TestingBot extends TelegramLongPollingBot {
                     Map.of(0, "editingGameTypeCampaign", 1, "editingGameTypeOneshot"));
             sendMessage("Please select game type: ", chatId, markup);
             userStates.replace(chatId, "editing_games_type_control");
+        } else if (userStates.get(chatId).equals("editing_games_description")){
+            sendMessage("Please write to chat new description for a game:", chatId, null);
+            userStates.replace(chatId, "editing_games_description_control");
+        } else if (userStates.get(chatId).equals("editing_games_maxplayers")){
+            sendMessage("Please write to chat new max amount of players(2-10):", chatId, null);
+            userStates.replace(chatId, "editing_games_maxplayers_control");
         } else if (userStates.get(chatId).equals("editing_games_delete")){
             InlineKeyboardMarkup markup = createMarkup(2, Map.of(0, "Yes", 1, "No"),
                     Map.of(0, "deletingGameYes", 1, "deletingGameNo"));
@@ -404,6 +453,7 @@ public class TestingBot extends TelegramLongPollingBot {
                 } catch (NoSuchGameException | BadDataTypeException e){
                     e.printStackTrace();
                     sendMessage("Something went wrong, please try again.", chatId, null);
+                    sendMessage(e.getMessage(), chatId, null);
                 }
             }else{
                 sendMessage("This game name is already used. Please choose other name: ", chatId, null);
@@ -438,8 +488,8 @@ public class TestingBot extends TelegramLongPollingBot {
             } catch (DateTimeParseException e){
                 sendMessage("Bad time format. Please write time again: ", chatId, null);
             } catch (NoSuchGameException | BadDataTypeException e){
-                e.printStackTrace();
                 sendMessage("Something went wrong, please try again.", chatId, null);
+                sendMessage(e.getMessage(), chatId, null);
             }
         } else if (userStates.get(chatId).equals("editing_games_type_control")){
             try {
@@ -449,8 +499,43 @@ public class TestingBot extends TelegramLongPollingBot {
                 userStates.replace(chatId, "default");
                 showMenu(chatId, actualUser);
             } catch (BadDataTypeException | NoSuchGameException e){
-                sendMessage("Error: "+e.getMessage(), chatId, null);
+                sendMessage("Something went wrong, please try again.", chatId, null);
+                sendMessage(e.getMessage(), chatId, null);
                 showMenu(chatId, actualUser);
+            }
+        } else if (userStates.get(chatId).equals("editing_games_region_control")) {
+            try {
+                gameService.changeGameData("region", messageText, editedGameId);
+                sendMessage("Game region was successfully changed.", chatId, null);
+                editedGameId = null;
+                userStates.replace(chatId, "default");
+                showMenu(chatId, actualUser);
+            } catch (BadDataTypeException | NoSuchGameException e){
+                sendMessage("Something went wrong, please try again.", chatId, null);
+                sendMessage(e.getMessage(), chatId, null);
+                showMenu(chatId, actualUser);
+            }
+        } else if (userStates.get(chatId).equals("editing_games_description_control")) {
+            try{
+                gameService.changeGameData("description", messageText, editedGameId);
+                sendMessage("Game description was successfully changed.", chatId, null);
+                editedGameId = null;
+                userStates.replace(chatId, "default");
+                showMenu(chatId, actualUser);
+            } catch (BadDataTypeException | NoSuchGameException e){
+                sendMessage("Something went wrong, please try again.", chatId, null);
+                sendMessage(e.getMessage(), chatId, null);
+            }
+        } else if (userStates.get(chatId).equals("editing_games_maxplayers_control")){
+            try {
+                gameService.changeGameData("maxPlayers", messageText, editedGameId);
+                editedGameId = null;
+                userStates.replace(chatId, "default");
+                sendMessage("Game max amount of players was successfully changed.", chatId, null);
+                showMenu(chatId, actualUser);
+            } catch (BadDataTypeException | NoSuchGameException e){
+                sendMessage("Something went wrong, please try again.", chatId, null);
+                sendMessage(e.getMessage(), chatId, null);
             }
         } else if (userStates.get(chatId).equals("editing_games_delete_control")){
             try {
@@ -460,12 +545,44 @@ public class TestingBot extends TelegramLongPollingBot {
                 sendMessage("Game was successfully deleted.", chatId, null);
                 showMenu(chatId, actualUser);
             } catch (NoSuchGameException e){
-                e.printStackTrace();
                 sendMessage("Something went wrong, please try again.", chatId, null);
+                sendMessage(e.getMessage(), chatId, null);
             }
         }
     }
 
+
+    public void playerMenu(long chatId, User actualUser) {
+        userStates.replace(chatId, "default");
+        String text = "Hello, " + actualUser.getFirstName() + "\n" +
+                "THIS IS MAIN MENU";
+        int buttonAmount = 2;
+        Map<Integer, String> buttonTexts = new HashMap<>(Map.of(0, "Join game", 1, "My games"));
+        Map<Integer, String> callData = new HashMap<>(Map.of(0, "joinGame", 1, "myGames"));
+        try {
+            if (userService.isMaster(actualUser)){
+                buttonTexts.put(2, "Master menu");
+                buttonTexts.put(3, "Delete account");
+                callData.put(2, "switchToMasterMenu");
+                callData.put(3, "delete");
+                buttonAmount = 4;
+            } else {
+                buttonTexts.put(2, "Delete account");
+                callData.put(2, "delete");
+                buttonAmount = 3;
+            }
+        } catch (UserIsNotRegisteredException e){
+            buttonTexts.put(2, "Delete account");
+            callData.put(2, "delete");
+            buttonAmount = 3;
+            e.printStackTrace();
+        }
+        InlineKeyboardMarkup markup = createMarkup(buttonAmount, buttonTexts, callData);
+        sendMessage(text, chatId, markup);
+    }
+    public void joinGame(long chatId, User actualUser){
+
+    }
 
     private void emptyRecycleBin(long chatId){
         for (Integer messageId : messageRecycleBin.get(chatId)){
@@ -503,7 +620,7 @@ public class TestingBot extends TelegramLongPollingBot {
             if (user.isMaster()){
                 masterMenu(chatId, actualUser);
             } else {
-                mainMenu(chatId, actualUser);
+                playerMenu(chatId, actualUser);
             }
         } catch (UserIsNotRegisteredException e){
             mainMenu(chatId, actualUser);
