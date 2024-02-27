@@ -151,19 +151,6 @@ public class GameEntity {
     public boolean hasFreePosition(){
         return players.size()<maxPlayers;
     }
-    public void joinPlayer(UserEntity player) throws JoinGameException, NoSuchGameException {
-        if (hasFreePosition()){
-            if (player.isMaster() && master.equals(player)){
-                throw new JoinGameException("You cannot join game, of which you are the master.");
-            }
-            if (players.contains(player)){
-                throw new JoinGameException("You've already joined this game before.");
-            }
-            players.add(player);
-        } else {
-            throw new NoSuchGameException("Game capacity is already full. Try other game.");
-        }
-    }
     @Override
     public String toString (){
         return "\nName: "+name+

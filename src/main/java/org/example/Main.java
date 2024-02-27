@@ -12,6 +12,10 @@ import org.telegram.telegrambots.updatesreceivers.DefaultBotSession;
 public class Main {
     public static void main(String[] args) {
         SpringApplication.run(Main.class, args);
+        /*
+        Исправить ошибку - В данный момент мастер может присоединиться к собственной
+        игре в качестве игрока. Нужно исправить.
+         */
     }
     @PostConstruct
     public void init() throws TelegramApiException{

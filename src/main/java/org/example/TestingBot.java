@@ -142,6 +142,21 @@ public class TestingBot extends TelegramLongPollingBot {
                 } else {
                     playerMenu(chatId, actualUser);
                 }
+            } else if (callData.equals("joinGame") || callData.contains("choosingGame")){
+                if (callData.equals("joinGame")) {
+                    userStates.replace(chatId, "showing_games_select_region");
+                    showAllGamesByRegion(chatId, messageText);
+                } else if (callData.contains("choosingGame")){
+                    if (callData.contains("choosingGameRegion")){
+                        messageText = callData.substring(callData.length()-2);
+                        userStates.replace(chatId, "showing_games_print");
+                        showAllGamesByRegion(chatId, messageText);
+                    }else if (callData.contains("choosingGameToJoin")){
+                        String [] splittedCallData = callData.split("_");
+                        String gameId = splittedCallData[1];
+                        joinGame(chatId, gameId, actualUser);
+                    }
+                }
             } else {
                 sendMessage("Something went wrong.", chatId, null);
                 showMenu(chatId, actualUser);
@@ -383,15 +398,7 @@ public class TestingBot extends TelegramLongPollingBot {
             }
             message += "\nChoose a game you want to edit:";
 
-            int numberingButtons = 0;
-            int buttonAmount = masterGames.size();
-            Map<Integer, String> buttonTexts = new HashMap<>();
-            Map<Integer, String> callData = new HashMap<>();
-            for (GameEntity game : masterGames){
-                buttonTexts.put(numberingButtons, game.getName());
-                callData.put(numberingButtons, "editingMasterGame_"+game.getId());
-            }
-            InlineKeyboardMarkup markupLine = createMarkup(buttonAmount, buttonTexts, callData);
+            InlineKeyboardMarkup markupLine = createButtonsByGameSet(masterGames, "editingMasterGame");
             sendMessage(message, chatId, markupLine);
         } catch (UserIsNotRegisteredException e){
             sendMessage("Something went wrong. UserIsNotRegisteredException happened.", chatId, null);
@@ -580,8 +587,54 @@ public class TestingBot extends TelegramLongPollingBot {
         InlineKeyboardMarkup markup = createMarkup(buttonAmount, buttonTexts, callData);
         sendMessage(text, chatId, markup);
     }
-    public void joinGame(long chatId, User actualUser){
-
+    public void showAllGamesByRegion(long chatId, String region){
+        if (userStates.get(chatId).equals("showing_games_select_region")) {
+            InlineKeyboardMarkup markup = createButtonsByRegions();
+            sendMessage("Please choose region, you want to play in.", chatId, markup);
+        } else if (userStates.get(chatId).equals("showing_games_print")){
+            try {
+                Set<GameEntity> games = gameService.getAllGamesByRegion(GameRegion.parseGameRegion(region));
+                String message = "Games in " + GameRegion.parseGameRegion(region).toFullString();
+                int numbering = 1;
+                for (GameEntity game : games) {
+                    message += "\n" + numbering + ")" +
+                            "\nName: " + game.getName() +
+                            "\nGame type: " + game.getGameType() +
+                            "\nMaster: " + game.getMaster().getMasterNickname() +
+                            "\nDate: " + DateTools.parseLocalDateToString(game.getDate()) +
+                            "\nTime: " + TimeTools.parseLocalTimeToString(game.getTime()) +
+                            "\nPlayers: " + game.getPlayers().size() + "/" + game.getMaxPlayers() +
+                            "\nDescription: " + game.getDescription() +
+                            "\n";
+                    numbering++;
+                }
+                InlineKeyboardMarkup markup = createButtonsByGameSet(games, "choosingGameToJoin");
+                sendMessage(message, chatId, markup);
+            } catch (BadDataTypeException | NoSuchGameException e) {
+                sendMessage("Something went wrong, please try again.", chatId, null);
+                sendMessage(e.getMessage(), chatId, null);
+            }
+        }
+    }
+    public void joinGame(long chatId, String gameId, User actualUser){
+        try {
+            GameEntity game = gameService.getGameById(Long.parseLong(gameId));
+            UserEntity player = userService.getUserEntity(actualUser);
+            gameService.joinPlayer(player, game);
+            sendMessage("You were successfully joined!", chatId, null);
+            showMenu(chatId, actualUser);
+        } catch (NumberFormatException e){
+            sendMessage("Something went wrong. Bad game id format.", chatId, null);
+            e.printStackTrace();
+        } catch (NoSuchGameException e){
+            sendMessage("Something went wrong. Try again later.", chatId, null);
+            sendMessage(e.getMessage(), chatId, null);
+        } catch (UserIsNotRegisteredException e){
+            sendMessage("Something went wrong. Try again later.", chatId, null);
+            sendMessage(e.getMessage(), chatId, null);
+        } catch (JoinGameException e){
+            sendMessage(e.getMessage(), chatId, null);
+        }
     }
 
     private void emptyRecycleBin(long chatId){
@@ -654,7 +707,27 @@ public class TestingBot extends TelegramLongPollingBot {
         markup.setKeyboard(rowsInLine);
         return markup;
     }
-
+    private InlineKeyboardMarkup createButtonsByGameSet(Set<GameEntity> games, String callDataBeginning){
+        int numberingButtons = 0;
+        int buttonAmount = games.size();
+        Map<Integer, String> buttonTexts = new HashMap<>();
+        Map<Integer, String> callData = new HashMap<>();
+        for (GameEntity game : games){
+            buttonTexts.put(numberingButtons, game.getName());
+            callData.put(numberingButtons, callDataBeginning+"_"+game.getId());
+        }
+        return createMarkup(buttonAmount, buttonTexts, callData);
+    }
+    private InlineKeyboardMarkup createButtonsByRegions(){
+        GameRegion [] regions = GameRegion.values();
+        Map<Integer, String> buttonTexts = new HashMap<>();
+        Map<Integer, String> callData = new HashMap<>();
+        for (int i = 0; i < regions.length; i++){
+            buttonTexts.put(i, regions[i].toString().toUpperCase());
+            callData.put(i, "choosingGameRegion_"+regions[i].toString());
+        }
+        return createMarkup(regions.length, buttonTexts, callData);
+    }
 
 
 

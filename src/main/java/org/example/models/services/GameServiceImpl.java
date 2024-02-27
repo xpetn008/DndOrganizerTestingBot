@@ -6,18 +6,17 @@ import org.example.data.entities.enums.GameRegion;
 import org.example.data.entities.enums.GameType;
 import org.example.data.entities.UserEntity;
 import org.example.data.repositories.GameRepository;
-import org.example.models.exceptions.BadDataException;
-import org.example.models.exceptions.BadDataTypeException;
-import org.example.models.exceptions.MasterHaveNoGamesException;
-import org.example.models.exceptions.NoSuchGameException;
+import org.example.models.exceptions.*;
 import org.example.tools.DateTools;
 import org.example.tools.TimeTools;
 import org.hibernate.Hibernate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.telegram.telegrambots.meta.api.objects.games.Game;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.Optional;
 import java.util.Set;
 
 @Service
@@ -53,6 +52,31 @@ public class GameServiceImpl implements GameService{
                 Hibernate.initialize(game.getPlayers());
             }
             return masterGames;
+        }
+    }
+    @Override
+    @Transactional
+    public Set<GameEntity> getAllGamesByRegion (GameRegion region) throws NoSuchGameException{
+        Set<GameEntity> games = gameRepository.findAllByRegion(region);
+        if (games.isEmpty()){
+            throw new NoSuchGameException("There is no games in this region.");
+        } else {
+            for (GameEntity game : games){
+                Hibernate.initialize(game.getPlayers());
+            }
+            return games;
+        }
+    }
+    @Override
+    @Transactional
+    public GameEntity getGameById(Long id) throws NoSuchGameException{
+        Optional<GameEntity> optionalGame = gameRepository.findById(id);
+        if (optionalGame.isPresent()){
+            GameEntity game = optionalGame.get();
+            Hibernate.initialize(game.getPlayers());
+            return game;
+        } else {
+            throw new NoSuchGameException("There is no such game.");
         }
     }
     @Override
@@ -114,5 +138,20 @@ public class GameServiceImpl implements GameService{
             case "region" -> editedGame.setRegion(GameRegion.parseGameRegion(data));
         }
         gameRepository.save(editedGame);
+    }
+    @Override
+    public void joinPlayer(UserEntity player, GameEntity game) throws JoinGameException, NoSuchGameException {
+        if (game.hasFreePosition()){
+            if (player.isMaster() && game.getMaster().equals(player)){
+                throw new JoinGameException("You cannot join game, of which you are the master.");
+            }
+            if (game.getPlayers().contains(player)){
+                throw new JoinGameException("You've already joined this game before.");
+            }
+            game.getPlayers().add(player);
+            gameRepository.save(game);
+        } else {
+            throw new NoSuchGameException("Game capacity is already full. Try other game.");
+        }
     }
 }
