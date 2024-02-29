@@ -12,12 +12,12 @@ import org.example.tools.TimeTools;
 import org.hibernate.Hibernate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.api.objects.games.Game;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 
 @Service
 public class GameServiceImpl implements GameService{
@@ -69,6 +69,23 @@ public class GameServiceImpl implements GameService{
     }
     @Override
     @Transactional
+    public Set<GameEntity> getAllGamesByPlayer (UserEntity player) throws NoSuchGameException{
+        Set<GameEntity> games = gameRepository.findAllByPlayersContains(player);
+        if (games.isEmpty()){
+            throw new NoSuchGameException("There is no games, you are joined in.");
+        } else {
+            for (GameEntity game : games){
+                Hibernate.initialize(game.getPlayers());
+            }
+            return games;
+        }
+    }
+    @Override
+    public Set<UserEntity> getAllPlayersByGame (GameEntity game){
+        return game.getPlayers();
+    }
+    @Override
+    @Transactional
     public GameEntity getGameById(Long id) throws NoSuchGameException{
         Optional<GameEntity> optionalGame = gameRepository.findById(id);
         if (optionalGame.isPresent()){
@@ -82,7 +99,6 @@ public class GameServiceImpl implements GameService{
     @Override
     @Transactional
     public void deleteGameById (Long id) throws NoSuchGameException {
-        System.out.println("DELETING METHOD RUNS");
         GameEntity game = gameRepository.findById(id).orElse(null);
         if (game == null){
             throw new NoSuchGameException("There is no such game");
@@ -140,6 +156,7 @@ public class GameServiceImpl implements GameService{
         gameRepository.save(editedGame);
     }
     @Override
+    @Transactional
     public void joinPlayer(UserEntity player, GameEntity game) throws JoinGameException, NoSuchGameException {
         if (game.hasFreePosition()){
             if (player.isMaster() && game.getMaster().equals(player)){

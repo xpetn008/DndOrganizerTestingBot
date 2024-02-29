@@ -3,6 +3,7 @@ package org.example.data.entities;
 import jakarta.persistence.*;
 
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.Set;
 
 @Entity
@@ -79,5 +80,16 @@ public class UserEntity {
 
     public void setGames(Set<GameEntity> games) {
         this.games = games;
+    }
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        UserEntity user = (UserEntity) o;
+        return Objects.equals(telegramId, user.telegramId);
+    }
+    @Override
+    public int hashCode() {
+        return Objects.hash(telegramId);
     }
 }

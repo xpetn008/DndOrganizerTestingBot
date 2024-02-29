@@ -8,6 +8,7 @@ import org.example.models.exceptions.*;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.Map;
 import java.util.Set;
 
 public interface GameService {
@@ -15,6 +16,8 @@ public interface GameService {
     boolean gameNameIsFree (String name);
     Set<GameEntity> getAllGamesByMaster (UserEntity master) throws MasterHaveNoGamesException;
     Set<GameEntity> getAllGamesByRegion (GameRegion region) throws NoSuchGameException;
+    Set<GameEntity> getAllGamesByPlayer (UserEntity entity) throws NoSuchGameException;
+    Set<UserEntity> getAllPlayersByGame (GameEntity game);
     GameEntity getGameById (Long id) throws NoSuchGameException;
     void deleteGameById (Long id) throws NoSuchGameException;
     void changeGameData (String type, String data, Long gameId) throws BadDataTypeException, NoSuchGameException;

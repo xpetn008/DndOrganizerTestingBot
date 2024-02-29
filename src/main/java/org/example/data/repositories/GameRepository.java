@@ -14,5 +14,6 @@ public interface GameRepository extends CrudRepository<GameEntity, Long> {
     Optional<GameEntity> findByName (String name);
     void deleteByName (String name);
     void deleteAllByMaster (UserEntity master);
+    Set<GameEntity> findAllByPlayersContains (UserEntity player);
 
 }

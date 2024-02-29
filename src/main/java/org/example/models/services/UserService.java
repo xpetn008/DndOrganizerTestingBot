@@ -18,4 +18,5 @@ public interface UserService {
     boolean nicknameIsUsed (String nickname);
     void setMasterNickname(User user, String nickname) throws NicknameAlreadyExistsException, UserIsNotRegisteredException, UserIsNotMasterException;
     List<Long> getAllTelegramIds();
+
 }
