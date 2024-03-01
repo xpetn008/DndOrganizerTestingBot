@@ -1,7 +1,6 @@
 package org.example;
 
 import com.google.common.collect.*;
-import com.sun.jna.platform.win32.Netapi32Util;
 import org.example.data.entities.GameEntity;
 import org.example.data.entities.enums.GameRegion;
 import org.example.data.entities.enums.GameType;
@@ -12,12 +11,12 @@ import org.example.models.services.UserService;
 import org.example.tools.DateTools;
 import org.example.tools.TimeTools;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
 import org.telegram.telegrambots.meta.api.objects.*;
-import org.telegram.telegrambots.meta.api.objects.games.Game;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
@@ -37,6 +36,7 @@ public class TestingBot extends TelegramLongPollingBot {
     private final Map<Long, String> userStates = new HashMap<>();
     private final Multimap<Long, Integer> messageRecycleBin = ArrayListMultimap.create();
     private Long editedGameId;
+    private Long disconectedGameId;
     private GameEntity newGame;
     @Override
     public void onUpdateReceived(Update update) {
@@ -159,6 +159,21 @@ public class TestingBot extends TelegramLongPollingBot {
                         joinGame(chatId, gameId, actualUser);
                     }
                 }
+            } else if (callData.equals("myGames") || callData.contains("userGameListChoice") || callData.contains("disconnecting")){
+                if (callData.equals("myGames")) {
+                    showPlayerGames(chatId, actualUser);
+                } else if (callData.contains("userGameListChoice")){
+                    disconectedGameId = Long.parseLong(callData.substring(callData.length()-2));
+                    userStates.replace(chatId, "disconnecting_game_choice");
+                    disconnectGame(chatId, actualUser, disconectedGameId);
+                } else if (callData.contains("disconnecting")){
+                    if (callData.contains("Yes")){
+                        userStates.replace(chatId, "disconnecting_game_yes");
+                    } else {
+                        userStates.replace(chatId, "disconnecting_game_no");
+                    }
+                    disconnectGame(chatId, actualUser, disconectedGameId);
+                }
             } else {
                 sendMessage("Something went wrong.", chatId, null);
                 showMenu(chatId, actualUser);
@@ -244,16 +259,31 @@ public class TestingBot extends TelegramLongPollingBot {
             sendMessage(text, chatId, markupInline);
             userStates.replace(chatId, "deleting_answer");
         } else if (userStates.get(chatId).equals("deleting_answer")){
+            System.out.println("Account deleting step 2 by: "+actualUser.getFirstName());
+            System.out.println("Call data - "+update.getCallbackQuery().getData());
             String callData = update.getCallbackQuery().getData();
             if (callData.equals("deletingYes")){
                 String answer = "Your account was deleted.";
-                try{
-                    Set<GameEntity> masterGames = gameService.getAllGamesByMaster(userService.getUserEntity(actualUser));
-                    for (GameEntity game : masterGames){
-                        sendMessageToAllPlayersInGame("WARNING: A game "+game.getName()+", leaded by master "+game.getMaster().getMasterNickname()+" was deleted!", game);
+                try {
+                    if (userService.isMaster(actualUser)) {
+                        Set<GameEntity> masterGames = gameService.getAllGamesByMaster(userService.getUserEntity(actualUser));
+                        for (GameEntity game : masterGames) {
+                            sendMessageToAllPlayersInGame("WARNING: A game " + game.getName() + ", leaded by master " + game.getMaster().getMasterNickname() + " was deleted!", game);
+                        }
                     }
-                    userService.delete(actualUser);
                 } catch (UserIsNotRegisteredException | MasterHaveNoGamesException e){
+                }
+                try {
+                    Set<GameEntity> gamesByPlayer = gameService.getAllGamesByPlayer(userService.getUserEntity(actualUser));
+                    for (GameEntity game : gamesByPlayer) {
+                        gameService.disconnectPlayer(userService.getUserEntity(actualUser), game);
+                        sendMessage("ATTENTION: Some player have disconnected your game - " + game.getName() + " on " + DateTools.parseLocalDateToString(game.getDate()) + "! Players are now " + game.getPlayers().size() + "/" + game.getMaxPlayers(), gameService.getMasterTelegramId(game), null);
+                    }
+                } catch (UserHaveNoGamesExcpetion | UserIsNotRegisteredException | NoSuchGameException e){
+                }
+                try{
+                    userService.delete(actualUser);
+                } catch (UserIsNotRegisteredException e){
                     answer = e.getMessage();
                 }
 
@@ -288,9 +318,20 @@ public class TestingBot extends TelegramLongPollingBot {
     }
     public void createGame(long chatId, User actualUser, String messageText){
         if (userStates.get(chatId).equals("creating_game_name")){
-            newGame = new GameEntity();
-            sendMessage("Please choose a unique name for your game: ", chatId, null);
-            userStates.replace(chatId, "creating_game_description");
+            try {
+                if (gameService.canCreateNewGame(userService.getUserEntity(actualUser))) {
+                    newGame = new GameEntity();
+                    sendMessage("Please choose a unique name for your game: ", chatId, null);
+                    userStates.replace(chatId, "creating_game_description");
+                } else {
+                    sendMessage("You already have maximum amount of created games, which is "+gameService.getMaximumGames()+". If you want to create new, please delete an old one.", chatId, null);
+                    showMenu(chatId, actualUser);
+                }
+            }catch (UserIsNotRegisteredException e){
+                sendMessage("Something went wrong. Please try again.", chatId, null);
+                sendMessage(e.getMessage(), chatId, null);
+                showMenu(chatId, actualUser);
+            }
         } else if (userStates.get(chatId).equals("creating_game_description")){
             if (!gameService.gameNameIsFree(messageText)){
                 sendMessage("This game name is already used. Please choose other name: ", chatId, null);
@@ -407,7 +448,8 @@ public class TestingBot extends TelegramLongPollingBot {
             InlineKeyboardMarkup markupLine = createButtonsByGameSet(masterGames, "editingMasterGame");
             sendMessage(message, chatId, markupLine);
         } catch (UserIsNotRegisteredException e){
-            sendMessage("Something went wrong. UserIsNotRegisteredException happened.", chatId, null);
+            sendMessage("Something went wrong. Please try again.", chatId, null);
+            sendMessage(e.getMessage(), chatId, null);
         } catch (MasterHaveNoGamesException e){
             sendMessage(e.getMessage(), chatId, null);
             showMenu(chatId, actualUser);
@@ -651,6 +693,7 @@ public class TestingBot extends TelegramLongPollingBot {
             UserEntity player = userService.getUserEntity(actualUser);
             gameService.joinPlayer(player, game);
             sendMessage("You were successfully joined!", chatId, null);
+            sendMessage("ATTENTION: A new player have joined your game - "+game.getName()+" on "+DateTools.parseLocalDateToString(game.getDate())+"! Players are now "+game.getPlayers().size()+"/"+game.getMaxPlayers(), gameService.getMasterTelegramId(game), null);
             showMenu(chatId, actualUser);
         } catch (NumberFormatException e){
             sendMessage("Something went wrong. Bad game id format.", chatId, null);
@@ -664,8 +707,66 @@ public class TestingBot extends TelegramLongPollingBot {
         }
     }
     public void showPlayerGames(long chatId, User actualUser){
+        try {
+            UserEntity user = userService.getUserEntity(actualUser);
+            Set<GameEntity> userGames = gameService.getAllGamesByPlayer(user);
+            String message = "You've join to: ";
+            int numbering = 1;
+            for (GameEntity game : userGames){
+                message += "\n"+numbering+")"+
+                        "\nName: " + game.getName() +
+                        "\nGame type: " + game.getGameType() +
+                        "\nMaster: " + game.getMaster().getMasterNickname() +
+                        "\nDate: " + DateTools.parseLocalDateToString(game.getDate()) +
+                        "\nTime: " + TimeTools.parseLocalTimeToString(game.getTime()) +
+                        "\nPlayers: " + game.getPlayers().size() + "/" + game.getMaxPlayers() +
+                        "\nDescription: " + game.getDescription() +
+                        "\n";
+                numbering++;
+            }
+            message += "\nChoose a game you want to disconnect";
 
+            InlineKeyboardMarkup markup = createButtonsByGameSet(userGames, "userGameListChoice");
+            sendMessage(message, chatId, markup);
+
+        } catch (UserIsNotRegisteredException e){
+            sendMessage("Something went wrong! Please try again.", chatId, null);
+            sendMessage(e.getMessage(), chatId, null);
+            showMenu(chatId, actualUser);
+        } catch (UserHaveNoGamesExcpetion e){
+            sendMessage(e.getMessage(), chatId, null);
+            showMenu(chatId, actualUser);
+        }
     }
+    public void disconnectGame(long chatId, User actualUser, Long gameId){
+        try {
+            GameEntity disconnectedGame = gameService.getGameById(gameId);
+            if (userStates.get(chatId).equals("disconnecting_game_choice")) {
+                InlineKeyboardMarkup markup = createMarkup(2, Map.of(0, "Yes", 1, "No"), Map.of(0, "disconnectingYes", 1, "disconnectingNo"));
+                sendMessage("Do you really want to leave this game?", chatId, markup);
+            } else if (userStates.get(chatId).equals("disconnecting_game_yes")) {
+                try {
+                    gameService.disconnectPlayer(userService.getUserEntity(actualUser), disconnectedGame);
+                    sendMessage("You were disconnected.", chatId, null);
+                    sendMessage("ATTENTION: Some player have disconnected your game - "+disconnectedGame.getName()+" on "+DateTools.parseLocalDateToString(disconnectedGame.getDate())+"! Players are now "+disconnectedGame.getPlayers().size()+"/"+disconnectedGame.getMaxPlayers(), gameService.getMasterTelegramId(disconnectedGame), null);
+                    showMenu(chatId, actualUser);
+                } catch (UserIsNotRegisteredException e) {
+                    sendMessage("Something went wrong! Please try again later.", chatId, null);
+                    sendMessage(e.getMessage(), chatId, null);
+                    showMenu(chatId, actualUser);
+                }
+            } else if (userStates.get(chatId).equals("disconnecting_game_no")) {
+                showMenu(chatId, actualUser);
+            }
+        }catch (NoSuchGameException e){
+            sendMessage("Something went wrong! Please try again later.", chatId, null);
+            sendMessage(e.getMessage(), chatId, null);
+            showMenu(chatId, actualUser);
+        }
+    }
+
+
+
 
     private void emptyRecycleBin(long chatId){
         for (Integer messageId : messageRecycleBin.get(chatId)){
@@ -765,7 +866,22 @@ public class TestingBot extends TelegramLongPollingBot {
         }
         return createMarkup(regions.length, buttonTexts, callData);
     }
+    @Scheduled(fixedRate = 3600000, initialDelay = 6000)
+    private void setUpcomingExpiredGames (){
+        gameService.setUpcomingExpiredGames();
+    }
+    @Scheduled(fixedRate = 60000, initialDelay = 12000)
+    private void removeExpiredGames (){
+        try {
+            for (GameEntity game : gameService.getUpcomingExpiredGames()){
+                sendMessageToAllPlayersInGame("Game - "+game.getName()+" was expired and removed.", game);
+                sendMessage("Game - "+game.getName()+", leaded by you, was expired and removed.", game.getMaster().getTelegramId(), null);
+            }
+            gameService.removeExpiredGames();
+        } catch(NoSuchGameException e){
 
+        }
+    }
 
 
 
