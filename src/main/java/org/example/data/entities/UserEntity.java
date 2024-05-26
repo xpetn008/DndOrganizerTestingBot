@@ -1,6 +1,8 @@
 package org.example.data.entities;
 
 import jakarta.persistence.*;
+import jakarta.transaction.Transactional;
+import org.hibernate.Hibernate;
 
 import java.util.HashSet;
 import java.util.Objects;
@@ -17,8 +19,6 @@ public class UserEntity {
     private Long telegramId;
     @Column(name = "master")
     private boolean master;
-    @Column(name = "master_nickname")
-    private String masterNickname;
     @OneToMany(mappedBy = "master")
     private Set<GameEntity> masterGames = new HashSet<>();
     @ManyToMany(mappedBy = "players")
@@ -56,14 +56,6 @@ public class UserEntity {
 
     public void setMaster(boolean master) {
         this.master = master;
-    }
-
-    public String getMasterNickname() {
-        return masterNickname;
-    }
-
-    public void setMasterNickname(String masterNickname) {
-        this.masterNickname = masterNickname;
     }
 
     public Set<GameEntity> getMasterGames() {

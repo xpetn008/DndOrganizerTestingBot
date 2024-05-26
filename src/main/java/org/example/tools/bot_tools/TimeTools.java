@@ -1,4 +1,4 @@
-package org.example.tools;
+package org.example.tools.bot_tools;
 
 import org.springframework.cglib.core.Local;
 

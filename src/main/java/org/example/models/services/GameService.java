@@ -12,7 +12,7 @@ import java.util.Map;
 import java.util.Set;
 
 public interface GameService {
-    void create (String name, LocalDate date, LocalTime time, UserEntity master, GameType gameType, String description, int maxPlayers, GameRegion region) throws BadDataException;
+    void create (String name, LocalDate date, LocalTime time, UserEntity master, GameType gameType, String description, int maxPlayers, GameRegion region, Long price) throws BadDataException;
     boolean gameNameIsFree (String name);
     boolean canCreateNewGame (UserEntity master);
     Set<GameEntity> getAllGamesByMaster (UserEntity master) throws MasterHaveNoGamesException;

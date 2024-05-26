@@ -4,10 +4,8 @@ import jakarta.persistence.*;
 import org.example.data.entities.enums.GameRegion;
 import org.example.data.entities.enums.GameType;
 import org.example.models.exceptions.BadDataException;
-import org.example.models.exceptions.JoinGameException;
-import org.example.models.exceptions.NoSuchGameException;
-import org.example.tools.DateTools;
-import org.example.tools.TimeTools;
+import org.example.tools.bot_tools.DateTools;
+import org.example.tools.bot_tools.TimeTools;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -41,9 +39,11 @@ public class GameEntity {
     private Integer maxPlayers;
     @Column(name = "region")
     private GameRegion region;
+    @Column(name = "price")
+    private Long price;
 
     public GameEntity(){}
-    public GameEntity(String name, LocalDate date, LocalTime time, UserEntity master, GameType gameType, String description, int maxPlayers, GameRegion region) throws BadDataException{
+    public GameEntity(String name, LocalDate date, LocalTime time, UserEntity master, GameType gameType, String description, int maxPlayers, GameRegion region, Long price) throws BadDataException{
         controlName(name);
         controlDescription(description);
         controlMaxPlayers(maxPlayers);
@@ -54,6 +54,7 @@ public class GameEntity {
         this.gameType = gameType;
         this.maxPlayers = maxPlayers;
         this.region = region;
+        this.price = price;
     }
     public Long getId() {
         return id;
@@ -124,19 +125,17 @@ public class GameEntity {
         this.maxPlayers = maxPlayers;
     }
     public void setMaxPlayersByString(String maxPlayers) throws BadDataException{
-        String numbers = "0123456789";
-        int similarities = 0;
-        for (int i = 0; i < maxPlayers.length(); i++){
-            for (int j = 0; j < numbers.length(); j++){
-                if (maxPlayers.charAt(i) == numbers.charAt(j)){
-                    similarities++;
-                }
-            }
-        }
-        if (similarities == maxPlayers.length()) {
+        if (controlStringContainsOnlyNumbers(maxPlayers)) {
             setMaxPlayers(Integer.parseInt(maxPlayers));
         }
         else {
+            throw new BadDataException("This is not a number.");
+        }
+    }
+    public void setPriceByString (String price) throws BadDataException{
+        if (controlStringContainsOnlyNumbers(price)){
+            setPrice(Long.parseLong(price));
+        } else {
             throw new BadDataException("This is not a number.");
         }
     }
@@ -146,6 +145,14 @@ public class GameEntity {
 
     public void setRegion(GameRegion region) {
         this.region = region;
+    }
+
+    public Long getPrice() {
+        return price;
+    }
+
+    public void setPrice(Long price) {
+        this.price = price;
     }
 
     public boolean hasFreePosition(){
@@ -185,6 +192,18 @@ public class GameEntity {
         } else if (maxPlayers > 10){
             throw new BadDataException("Too many players. Maximum amount must be from 2 to 10 players.");
         }
+    }
+    private boolean controlStringContainsOnlyNumbers (String input) {
+        String numbers = "0123456789";
+        int similarities = 0;
+        for (int i = 0; i < input.length(); i++){
+            for (int j = 0; j < numbers.length(); j++){
+                if (input.charAt(i) == numbers.charAt(j)){
+                    similarities++;
+                }
+            }
+        }
+        return similarities == input.length();
     }
 
 }

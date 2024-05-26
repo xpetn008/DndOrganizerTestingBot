@@ -16,6 +16,12 @@ import java.util.TimerTask;
 @SpringBootApplication
 public class Main {
     public static void main(String[] args) {
+        /*Исправить кнопку Back - можно вернуться только на одно сообщение назад
+        изменить на дерево сообщений до главного меню
+        добавить обновление последнего сообщения каждый раз, сейчас при переходе на предъидущее сообщение несколько раз добавляеться несколько
+        кнопок Back
+         */
+
         SpringApplication.run(Main.class, args);
     }
     @PostConstruct
