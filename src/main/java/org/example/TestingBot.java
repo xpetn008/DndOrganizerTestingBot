@@ -485,13 +485,11 @@ public class TestingBot extends TelegramLongPollingBot {
         try {
             UserEntity master = userService.getUserEntity(actualUser);
             Set<GameEntity> masterGames = gameService.getAllGamesByMaster(master);
-            String message = "Your games:";
-            int numbering = 1;
+            sendMessage("<b>YOUR GAMES LIST</b>", chatId, null);
             for (GameEntity game : masterGames){
                 Set<UserEntity> players = game.getPlayers();
-                message += "\n"+numbering+")" +
-                        "\nName: "+game.getName()+
-                        "\nGame type: "+game.getGameType()+
+                String message = "<b>" + game.getName() + "</b>";
+                message += "\nGame type: "+game.getGameType()+
                         "\nLanguage: "+game.getLanguage().toFullString()+
                         "\nDate: "+DateTools.parseLocalDateToString(game.getDate())+
                         "\nTime: "+TimeTools.parseLocalTimeToString(game.getTime())+
@@ -504,12 +502,10 @@ public class TestingBot extends TelegramLongPollingBot {
                                 message += "   - @"+player.getUsername()+"\n";
                             }
                         }
-                numbering++;
-            }
-            message += "\nChoose a game you want to edit:";
+                InlineKeyboardMarkup markup = createMarkup(1, Map.of(0, "Edit game"), Map.of(0, "editingMasterGame_"+game.getId()));
+                sendMessage(message, chatId, markup);
 
-            InlineKeyboardMarkup markupLine = createButtonsByGameSet(masterGames, "editingMasterGame");
-            sendMessage(message, chatId, markupLine);
+            }
         } catch (UserIsNotRegisteredException e){
             sendMessage("Something went wrong. Please try again.", chatId, null);
             sendMessage(e.getMessage(), chatId, null);
@@ -968,6 +964,7 @@ public class TestingBot extends TelegramLongPollingBot {
         }
         sendMessage.setChatId(actualMessage.getChatId());
         sendMessage.setText(actualMessage.getText());
+        sendMessage.setParseMode("HTML");
         try{
             Message sentMessage = execute(sendMessage);
             messageRecycleBin.put(chatId, sentMessage.getMessageId());
