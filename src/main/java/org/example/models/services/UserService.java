@@ -7,14 +7,13 @@ import org.telegram.telegrambots.meta.api.objects.User;
 import java.util.List;
 
 public interface UserService {
-    void create (User user, boolean master) throws UserAlreadyRegisteredException, BadDataException;
+    void create (User user) throws UserAlreadyRegisteredException, BadDataException;
     void delete (User user) throws UserIsNotRegisteredException;
     UserEntity getUserEntity (User user) throws UserIsNotRegisteredException;
     boolean isRegistered (User user);
     boolean isMaster (User user) throws UserIsNotRegisteredException;
     boolean nicknameIsUsed (String nickname);
     void setUserNickname(User user, String nickname) throws UserIsNotRegisteredException;
-    void changeUserData(String type, String data, User user) throws BadDataTypeException, UserIsNotRegisteredException;
     List<Long> getAllTelegramIds();
 
 }

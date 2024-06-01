@@ -17,18 +17,15 @@ public class UserEntity {
     private String username;
     @Column(name = "telegram_id")
     private Long telegramId;
-    @Column(name = "master")
-    private boolean master;
     @OneToMany(mappedBy = "master")
     private Set<GameEntity> masterGames = new HashSet<>();
     @ManyToMany(mappedBy = "players")
     private Set<GameEntity> games = new HashSet<>();
 
     public UserEntity (){}
-    public UserEntity (String username, Long telegramId, boolean master){
+    public UserEntity (String username, Long telegramId){
         this.username = username;
         this.telegramId = telegramId;
-        this.master = master;
     }
     public Long getId() {
         return id;
@@ -48,14 +45,6 @@ public class UserEntity {
 
     public void setTelegramId(Long telegramId) {
         this.telegramId = telegramId;
-    }
-
-    public boolean isMaster() {
-        return master;
-    }
-
-    public void setMaster(boolean master) {
-        this.master = master;
     }
 
     public Set<GameEntity> getMasterGames() {

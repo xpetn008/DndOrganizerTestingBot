@@ -1,22 +1,21 @@
 package org.example.models.services;
 
 import org.example.data.entities.GameEntity;
-import org.example.data.entities.enums.GameRegion;
+import org.example.data.entities.enums.GameLanguage;
 import org.example.data.entities.enums.GameType;
 import org.example.data.entities.UserEntity;
 import org.example.models.exceptions.*;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.util.Map;
 import java.util.Set;
 
 public interface GameService {
-    void create (String name, LocalDate date, LocalTime time, UserEntity master, GameType gameType, String description, int maxPlayers, GameRegion region, Long price) throws BadDataException;
+    void create (String name, LocalDate date, LocalTime time, UserEntity master, GameType gameType, String description, int maxPlayers, GameLanguage region, Long price) throws BadDataException;
     boolean gameNameIsFree (String name);
     boolean canCreateNewGame (UserEntity master);
     Set<GameEntity> getAllGamesByMaster (UserEntity master) throws MasterHaveNoGamesException;
-    Set<GameEntity> getAllGamesByRegion (GameRegion region) throws NoSuchGameException;
+    Set<GameEntity> getAllGamesByLanguage (GameLanguage language) throws NoSuchGameException;
     Set<GameEntity> getAllGamesByPlayer (UserEntity entity) throws UserHaveNoGamesExcpetion;
     Set<UserEntity> getAllPlayersByGame (GameEntity game);
     void removeExpiredGames() throws NoSuchGameException;

@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.Optional;
 
 public interface UserRepository extends CrudRepository<UserEntity, Long> {
+    Optional<UserEntity> findByUsername (String username);
     Optional<UserEntity> findByTelegramId (Long telegramId);
-    Optional<UserEntity> findByMasterNickname (String masterNickname);
     Optional<UserEntity> findById (Long id);
 }

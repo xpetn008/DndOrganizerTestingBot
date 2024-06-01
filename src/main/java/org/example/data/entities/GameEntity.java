@@ -1,7 +1,7 @@
 package org.example.data.entities;
 
 import jakarta.persistence.*;
-import org.example.data.entities.enums.GameRegion;
+import org.example.data.entities.enums.GameLanguage;
 import org.example.data.entities.enums.GameType;
 import org.example.models.exceptions.BadDataException;
 import org.example.tools.bot_tools.DateTools;
@@ -37,13 +37,13 @@ public class GameEntity {
     private String description;
     @Column(name = "max_players")
     private Integer maxPlayers;
-    @Column(name = "region")
-    private GameRegion region;
+    @Column(name = "language")
+    private GameLanguage language;
     @Column(name = "price")
     private Long price;
 
     public GameEntity(){}
-    public GameEntity(String name, LocalDate date, LocalTime time, UserEntity master, GameType gameType, String description, int maxPlayers, GameRegion region, Long price) throws BadDataException{
+    public GameEntity(String name, LocalDate date, LocalTime time, UserEntity master, GameType gameType, String description, int maxPlayers, GameLanguage language, Long price) throws BadDataException{
         controlName(name);
         controlDescription(description);
         controlMaxPlayers(maxPlayers);
@@ -53,7 +53,7 @@ public class GameEntity {
         this.master = master;
         this.gameType = gameType;
         this.maxPlayers = maxPlayers;
-        this.region = region;
+        this.language = language;
         this.price = price;
     }
     public Long getId() {
@@ -139,12 +139,12 @@ public class GameEntity {
             throw new BadDataException("This is not a number.");
         }
     }
-    public GameRegion getRegion() {
-        return region;
+    public GameLanguage getLanguage() {
+        return language;
     }
 
-    public void setRegion(GameRegion region) {
-        this.region = region;
+    public void setLanguage(GameLanguage language) {
+        this.language = language;
     }
 
     public Long getPrice() {
@@ -173,17 +173,17 @@ public class GameEntity {
 
 
     private void controlName(String name) throws BadDataException {
-        if (name.length() > 20){
-            throw new BadDataException("Name is too long. It must be at least 3 characters and max 20 characters long. Please try another.");
-        } else if (name.length()<3){
-            throw new BadDataException("Name is too short. It must be at least 3 characters and max 20 characters long. Please try another.");
+        if (name.length() > 40){
+            throw new BadDataException("Name is too long. It must be at least 7 characters and max 40 characters long. Please try another.");
+        } else if (name.length()<7){
+            throw new BadDataException("Name is too short. It must be at least 7 characters and max 40 characters long. Please try another.");
         }
     }
     private void controlDescription(String description) throws BadDataException{
         if (description.length() > 200){
-            throw new BadDataException("Description is too long. It must be at least 3 characters and max 200 characters long. Please try another.");
+            throw new BadDataException("Description is too long. It must be at least 10 characters and max 450 characters long. Please try another.");
         } else if (description.length()<3){
-            throw new BadDataException("Description is too short. It must be at least 3 characters and max 200 characters long. Please try another.");
+            throw new BadDataException("Description is too short. It must be at least 10 characters and max 450 characters long. Please try another.");
         }
     }
     private void controlMaxPlayers(int maxPlayers) throws BadDataException{

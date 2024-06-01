@@ -2,7 +2,7 @@ package org.example.models.services.implementations;
 
 import jakarta.transaction.Transactional;
 import org.example.data.entities.GameEntity;
-import org.example.data.entities.enums.GameRegion;
+import org.example.data.entities.enums.GameLanguage;
 import org.example.data.entities.enums.GameType;
 import org.example.data.entities.UserEntity;
 import org.example.data.repositories.GameRepository;
@@ -27,7 +27,7 @@ public class GameServiceImpl implements GameService {
     private Set<GameEntity> upcomingExpiredGames = new HashSet<>();
 
     @Override
-    public void create(String name, LocalDate date, LocalTime time, UserEntity master, GameType gameType, String description, int maxPlayers, GameRegion region, Long price) throws BadDataException{
+    public void create(String name, LocalDate date, LocalTime time, UserEntity master, GameType gameType, String description, int maxPlayers, GameLanguage language, Long price) throws BadDataException{
         GameEntity newGame = new GameEntity();
         newGame.setName(name);
         newGame.setDate(date);
@@ -36,7 +36,7 @@ public class GameServiceImpl implements GameService {
         newGame.setGameType(gameType);
         newGame.setDescription(description);
         newGame.setMaxPlayers(maxPlayers);
-        newGame.setRegion(region);
+        newGame.setLanguage(language);
         newGame.setPrice(price);
         gameRepository.save(newGame);
     }
@@ -73,10 +73,10 @@ public class GameServiceImpl implements GameService {
     }
     @Override
     @Transactional
-    public Set<GameEntity> getAllGamesByRegion (GameRegion region) throws NoSuchGameException{
-        Set<GameEntity> games = gameRepository.findAllByRegion(region);
+    public Set<GameEntity> getAllGamesByLanguage (GameLanguage language) throws NoSuchGameException{
+        Set<GameEntity> games = gameRepository.findAllByLanguage(language);
         if (games.isEmpty()){
-            throw new NoSuchGameException("There is no games in this region.");
+            throw new NoSuchGameException("There are no games in this language.");
         } else {
             for (GameEntity game : games){
                 Hibernate.initialize(game.getPlayers());
@@ -148,7 +148,7 @@ public class GameServiceImpl implements GameService {
     @Override
     @Transactional
     public void changeGameData(String type, String data, Long gameId) throws BadDataTypeException {
-        if (!type.equals("name") && !type.equals("date") && !type.equals("time") && !type.equals("type") && !type.equals("description") && !type.equals("maxPlayers") && !type.equals("region") && !type.equals("price")){
+        if (!type.equals("name") && !type.equals("date") && !type.equals("time") && !type.equals("type") && !type.equals("description") && !type.equals("maxPlayers") && !type.equals("language") && !type.equals("price")){
             throw new BadDataTypeException("Bad data type.");
         }
         GameEntity editedGame = gameRepository.findById(gameId).orElseThrow();
@@ -177,7 +177,7 @@ public class GameServiceImpl implements GameService {
                     throw new BadDataTypeException(e.getMessage());
                 }
             }
-            case "region" -> editedGame.setRegion(GameRegion.parseGameRegion(data));
+            case "language" -> editedGame.setLanguage(GameLanguage.parseGameLanguage(data));
             case "price" -> {
                 try {
                     editedGame.setPriceByString(data);
@@ -192,7 +192,7 @@ public class GameServiceImpl implements GameService {
     @Transactional
     public void joinPlayer(UserEntity player, GameEntity game) throws JoinGameException, NoSuchGameException {
         if (game.hasFreePosition()){
-            if (player.isMaster() && game.getMaster().equals(player)){
+            if (game.getMaster().equals(player)){
                 throw new JoinGameException("You cannot join game, whose master you are.");
             }
             if (game.getPlayers().contains(player)){

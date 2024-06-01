@@ -24,16 +24,16 @@ public class UserServiceImpl implements UserService {
     private GameRepository gameRepository;
 
     @Override
-    public void create (User user, boolean master) throws UserAlreadyRegisteredException, BadDataException {
+    public void create (User user) throws UserAlreadyRegisteredException, BadDataException {
         String username = user.getUserName();
-        if (username.isEmpty()){
+        if (username == null){
             throw new BadDataException("You telegram account doesn't contains username and it's impossible to use this bot without it. Please create your unique username for your telegram.");
         }
         long telegramId = user.getId();
         if (isRegistered(user)){
             throw new UserAlreadyRegisteredException("User is already registered!");
         }
-        UserEntity newUser = new UserEntity(username, telegramId, master);
+        UserEntity newUser = new UserEntity(username, telegramId);
         userRepository.save(newUser);
     }
     @Override
@@ -71,11 +71,11 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public boolean isMaster (User user) throws UserIsNotRegisteredException{
-        return getUserEntity(user).isMaster();
+        return !getUserEntity(user).getMasterGames().isEmpty();
     }
     @Override
     public boolean nicknameIsUsed (String nickname){
-        return userRepository.findByMasterNickname(nickname).isPresent();
+        return userRepository.findByUsername(nickname).isPresent();
     }
     @Override
     public void setUserNickname (User user, String name) throws UserIsNotRegisteredException{
@@ -90,23 +90,5 @@ public class UserServiceImpl implements UserService {
             ids.add(user.getTelegramId());
         }
         return ids;
-    }
-    @Override
-    @Transactional
-    public void changeUserData(String type, String data, User user) throws BadDataTypeException, UserIsNotRegisteredException{
-        if (!type.equals("nickname")){
-            throw new BadDataTypeException("Bad data type.");
-        }
-        UserEntity userEntity = getUserEntity(user);
-        Hibernate.initialize(userEntity.getMasterGames());
-        switch (type) {
-            case "nickname" -> {
-                if (nicknameIsUsed(data)){
-                    throw new BadDataTypeException("This nickname is already used. Please choose another.");
-                }
-                userEntity.setMasterNickname(data);
-            }
-        }
-        userRepository.save(userEntity);
     }
 }

@@ -6,7 +6,7 @@ public class TraceTools {
         StackTraceElement[] stackTraceElements = Thread.currentThread().getStackTrace();
         for (StackTraceElement element : stackTraceElements) {
             String methodName = element.getMethodName();
-            if (methodName.equals("masterMenu") || methodName.equals("playerMenu") || methodName.equals("mainMenu")) {
+            if (methodName.equals("masterMenu") || methodName.equals("playerMenu") || methodName.equals("mainMenu") || methodName.equals("showMenu")) {
                 actualMessageIsMenu = true;
                 break;
             }
