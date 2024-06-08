@@ -22,9 +22,12 @@ public class Main {
     public void telegram() throws TelegramApiException{
         TelegramBotsApi botsApi = new TelegramBotsApi(DefaultBotSession.class);
         botsApi.registerBot(testingBot);
+        botsApi.registerBot(feedbackBot);
     }
     @Autowired
     private TestingBot testingBot;
+    @Autowired
+    private FeedbackBot feedbackBot;
 
 
 }

@@ -15,5 +15,7 @@ public interface UserService {
     boolean nicknameIsUsed (String nickname);
     void setUserNickname(User user, String nickname) throws UserIsNotRegisteredException;
     List<Long> getAllTelegramIds();
+    void addReport(UserEntity user) throws UserIsNotRegisteredException;
+    UserEntity getUserByUsername (String username);
 
 }

@@ -10,13 +10,16 @@ import java.util.Optional;
 import java.util.Set;
 
 public interface GameRepository extends CrudRepository<GameEntity, Long> {
-    Set<GameEntity> findAllByMaster (UserEntity master);
-    Set<GameEntity> findAllByLanguage (GameLanguage language);
-    Optional<GameEntity> findByName (String name);
+    Set<GameEntity> findAllByExpiredIsTrueAndWasFeedbackIsFalse ();
+    Set<GameEntity> findAllByMasterAndExpired (UserEntity master, String expired);
+    Set<GameEntity> findAllByLanguageAndExpired (GameLanguage language, String expired);
+    Optional<GameEntity> findByNameAndExpired (String name, String expired);
     void deleteByName (String name);
-    void deleteAllByMaster (UserEntity master);
-    Set<GameEntity> findAllByPlayersContains (UserEntity player);
+    void deleteAllByMasterAndExpired (UserEntity master, String expired);
+    Set<GameEntity> findAllByPlayersContainsAndExpired (UserEntity player, String expired);
     Set<GameEntity> findAllByDateBetween (LocalDate today, LocalDate tomorrow);
-    Set<GameEntity> findAllByDateIsBefore (LocalDate today);
+    Set<GameEntity> findAllByDateIsBeforeAndExpired (LocalDate today, String expired);
+    boolean existsByKey (String key);
+    Optional<GameEntity> findByKey (String key);
 
 }

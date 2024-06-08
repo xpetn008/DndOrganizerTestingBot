@@ -32,12 +32,11 @@ public class DateTools {
         }
     }
     public static boolean controlDate (String dateString) throws DateTimeException {          //@param - Date String type dd.MM.yyyy
-        if (controlDateChars(dateString)) {                          //controls date chars, parsing date to LocalDate variable and controls if date is at least 1 week away, but no more than 2 years away
+        if (controlDateChars(dateString)) {                          //controls date chars, parsing date to LocalDate variable and controls if date is after now, but no more than 2 years away
             LocalDate date = parseStringToLocalDate(dateString);                 //returns true or false
             LocalDate currentDate = LocalDate.now();
-            LocalDate nextWeek = currentDate.plusWeeks(1);
             LocalDate afterTwoYears = currentDate.plusYears(2);
-            if (date.isAfter(nextWeek) && date.isBefore(afterTwoYears)) {
+            if (date.isAfter(LocalDate.now()) && date.isBefore(afterTwoYears)) {
                 return true;
             } else {
                 return false;

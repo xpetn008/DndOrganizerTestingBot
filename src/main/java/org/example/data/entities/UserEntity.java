@@ -17,15 +17,18 @@ public class UserEntity {
     private String username;
     @Column(name = "telegram_id")
     private Long telegramId;
+    @Column(name = "reports")
+    private Long reports;
     @OneToMany(mappedBy = "master")
     private Set<GameEntity> masterGames = new HashSet<>();
     @ManyToMany(mappedBy = "players")
     private Set<GameEntity> games = new HashSet<>();
 
     public UserEntity (){}
-    public UserEntity (String username, Long telegramId){
+    public UserEntity (String username, Long telegramId, Long reports){
         this.username = username;
         this.telegramId = telegramId;
+        this.reports = reports;
     }
     public Long getId() {
         return id;
@@ -62,6 +65,15 @@ public class UserEntity {
     public void setGames(Set<GameEntity> games) {
         this.games = games;
     }
+
+    public Long getReports() {
+        return reports;
+    }
+
+    public void setReports(Long reports) {
+        this.reports = reports;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

@@ -33,7 +33,7 @@ public class UserServiceImpl implements UserService {
         if (isRegistered(user)){
             throw new UserAlreadyRegisteredException("User is already registered!");
         }
-        UserEntity newUser = new UserEntity(username, telegramId);
+        UserEntity newUser = new UserEntity(username, telegramId, 0L);
         userRepository.save(newUser);
     }
     @Override
@@ -44,7 +44,7 @@ public class UserServiceImpl implements UserService {
         }
         UserEntity deletedUser = getUserEntity(user);
         if (isMaster(user)){
-            gameRepository.deleteAllByMaster(deletedUser);
+            gameRepository.deleteAllByMasterAndExpired(deletedUser, "NO");
         }
         userRepository.delete(deletedUser);
     }
@@ -90,5 +90,15 @@ public class UserServiceImpl implements UserService {
             ids.add(user.getTelegramId());
         }
         return ids;
+    }
+    @Override
+    @Transactional
+    public void addReport (UserEntity user) throws UserIsNotRegisteredException{
+        user.setReports(user.getReports() + 1);
+        userRepository.save(user);
+    }
+    @Override
+    public UserEntity getUserByUsername (String username){
+        return userRepository.findByUsername(username).orElseThrow();
     }
 }

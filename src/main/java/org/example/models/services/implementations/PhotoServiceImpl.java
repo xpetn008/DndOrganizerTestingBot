@@ -9,6 +9,8 @@ import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.meta.api.objects.InputFile;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
@@ -49,11 +51,40 @@ public class PhotoServiceImpl implements PhotoService {
         newPhotoCollection(names, descriptions, photos);
     }
     @Override
-    public InputFile getPhoto(){
-        byte [] photo = photoRepository.findById(Long.parseLong("1")).orElseThrow().getPhoto();
+    public InputFile getPhoto(String name){
+        byte [] photo = photoRepository.findByPhotoName(name).orElseThrow().getPhoto();
         InputStream inputStream = new ByteArrayInputStream(photo);
         InputFile photoFile = new InputFile();
         photoFile.setMedia(inputStream, "photo.jpg");
         return photoFile;
+    }
+    @Override
+    public byte [] getPhotoAsByteArray(String name){
+        return photoRepository.findByPhotoName(name).orElseThrow().getPhoto();
+    }
+    @Override
+    public InputFile parseByteArrayToInputFile (byte [] photo) {
+        InputStream inputStream = new ByteArrayInputStream(photo);
+        InputFile photoFile = new InputFile();
+        photoFile.setMedia(inputStream, "photo.jpg");
+        return photoFile;
+    }
+    @Override
+    public byte[] parseInputFileToByteArray (InputFile file){
+        try {
+            InputStream inputStream = file.getNewMediaStream();
+            ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+
+            int nRead;
+            byte[] data = new byte[1024];
+            while ((nRead = inputStream.read(data, 0, data.length)) != -1) {
+                buffer.write(data, 0, nRead);
+            }
+            buffer.flush();
+            return buffer.toByteArray();
+        } catch (IOException e){
+            e.printStackTrace();
+            return null;
+        }
     }
 }

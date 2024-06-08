@@ -13,9 +13,13 @@ import org.example.tools.bot_tools.TimeTools;
 import org.hibernate.Hibernate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.telegram.telegrambots.meta.api.objects.InputFile;
+import org.telegram.telegrambots.meta.api.objects.games.Game;
 
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+import java.security.SecureRandom;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.*;
 
@@ -23,11 +27,11 @@ import java.util.*;
 public class GameServiceImpl implements GameService {
     @Autowired
     private GameRepository gameRepository;
-    private final int maximumGames = 3;
-    private Set<GameEntity> upcomingExpiredGames = new HashSet<>();
+    private final int maximumGames = 10;
+    private final int KEY_LENGTH = 8;
 
     @Override
-    public void create(String name, LocalDate date, LocalTime time, UserEntity master, GameType gameType, String description, int maxPlayers, GameLanguage language, Long price) throws BadDataException{
+    public void create(String name, LocalDate date, LocalTime time, UserEntity master, GameType gameType, String description, int maxPlayers, GameLanguage language, Long price, byte [] image, String roleSystem, String genre) throws BadDataException{
         GameEntity newGame = new GameEntity();
         newGame.setName(name);
         newGame.setDate(date);
@@ -38,18 +42,33 @@ public class GameServiceImpl implements GameService {
         newGame.setMaxPlayers(maxPlayers);
         newGame.setLanguage(language);
         newGame.setPrice(price);
+        newGame.setImage(image);
+        newGame.setRoleSystem(roleSystem);
+        newGame.setGenre(genre);
+        newGame.setBooleans();
+        boolean newKey;
+        String key;
+        do {
+            key = generateKey();
+            if (gameRepository.existsByKey(key)){
+                newKey = false;
+            } else {
+                newKey = true;
+            }
+        } while (!newKey);
+        newGame.setKey(key);
         gameRepository.save(newGame);
     }
     @Override
     public boolean gameNameIsFree (String name){
-        return gameRepository.findByName(name).isEmpty();
+        return gameRepository.findByNameAndExpired(name, "NO").isEmpty();
     }
     @Override
     @Transactional
     public boolean canCreateNewGame (UserEntity master) {
         try {
             Set<GameEntity> masterGames = getAllGamesByMaster(master);
-            if (masterGames.size() >= 3) {
+            if (masterGames.size() >= maximumGames) {
                 return false;
             } else {
                 return true;
@@ -61,7 +80,7 @@ public class GameServiceImpl implements GameService {
     @Override
     @Transactional
     public Set<GameEntity> getAllGamesByMaster (UserEntity master) throws MasterHaveNoGamesException {
-        Set<GameEntity> masterGames = gameRepository.findAllByMaster(master);
+        Set<GameEntity> masterGames = gameRepository.findAllByMasterAndExpired(master, "NO");
         if (masterGames.isEmpty()){
             throw new MasterHaveNoGamesException("Master had not created any game.");
         } else {
@@ -74,7 +93,7 @@ public class GameServiceImpl implements GameService {
     @Override
     @Transactional
     public Set<GameEntity> getAllGamesByLanguage (GameLanguage language) throws NoSuchGameException{
-        Set<GameEntity> games = gameRepository.findAllByLanguage(language);
+        Set<GameEntity> games = gameRepository.findAllByLanguageAndExpired(language, "NO");
         if (games.isEmpty()){
             throw new NoSuchGameException("There are no games in this language.");
         } else {
@@ -87,7 +106,7 @@ public class GameServiceImpl implements GameService {
     @Override
     @Transactional
     public Set<GameEntity> getAllGamesByPlayer (UserEntity player) throws UserHaveNoGamesExcpetion{
-        Set<GameEntity> games = gameRepository.findAllByPlayersContains(player);
+        Set<GameEntity> games = gameRepository.findAllByPlayersContainsAndExpired(player, "NO");
         if (games.isEmpty()){
             throw new UserHaveNoGamesExcpetion("There is no games, you are joined in.");
         } else {
@@ -100,29 +119,6 @@ public class GameServiceImpl implements GameService {
     @Override
     public Set<UserEntity> getAllPlayersByGame (GameEntity game){
         return game.getPlayers();
-    }
-    @Override
-    @Transactional
-    public void setUpcomingExpiredGames (){
-        Set<GameEntity> games = gameRepository.findAllByDateBetween(LocalDate.now(), LocalDate.now().plusDays(1));
-        games.addAll(gameRepository.findAllByDateIsBefore(LocalDate.now()));
-        for (GameEntity game : games){
-            Hibernate.initialize(game.getPlayers());
-        }
-        upcomingExpiredGames = games;
-    }
-    @Override
-    @Transactional
-    public void removeExpiredGames () throws NoSuchGameException{
-        LocalDateTime now = LocalDateTime.now();
-        for (GameEntity game : upcomingExpiredGames){
-            LocalDateTime endGame = LocalDateTime.of(game.getDate(), game.getTime());
-            if (endGame.isBefore(now)){
-                deleteGameById(game.getId());
-                upcomingExpiredGames.remove(game);
-
-            }
-        }
     }
     @Override
     @Transactional
@@ -147,8 +143,8 @@ public class GameServiceImpl implements GameService {
     }
     @Override
     @Transactional
-    public void changeGameData(String type, String data, Long gameId) throws BadDataTypeException {
-        if (!type.equals("name") && !type.equals("date") && !type.equals("time") && !type.equals("type") && !type.equals("description") && !type.equals("maxPlayers") && !type.equals("language") && !type.equals("price")){
+    public void changeGameData(String type, String data, Long gameId, byte [] image) throws BadDataTypeException {
+        if (!type.equals("name") && !type.equals("date") && !type.equals("time") && !type.equals("type") && !type.equals("description") && !type.equals("maxPlayers") && !type.equals("language") && !type.equals("price") && !type.equals("image") && !type.equals("roleSystem") && !type.equals("genre")){
             throw new BadDataTypeException("Bad data type.");
         }
         GameEntity editedGame = gameRepository.findById(gameId).orElseThrow();
@@ -181,6 +177,21 @@ public class GameServiceImpl implements GameService {
             case "price" -> {
                 try {
                     editedGame.setPriceByString(data);
+                } catch (BadDataException e){
+                    throw new BadDataTypeException(e.getMessage());
+                }
+            }
+            case "image" -> editedGame.setImage(image);
+            case "roleSystem" -> {
+                try {
+                    editedGame.setRoleSystem(data);
+                } catch (BadDataException e){
+                    throw new BadDataTypeException(e.getMessage());
+                }
+            }
+            case "genre" -> {
+                try {
+                    editedGame.setGenre(data);
                 } catch (BadDataException e){
                     throw new BadDataTypeException(e.getMessage());
                 }
@@ -234,7 +245,55 @@ public class GameServiceImpl implements GameService {
         return game.getMaster().getTelegramId();
     }
     @Override
-    public Set<GameEntity> getUpcomingExpiredGames() {
-        return upcomingExpiredGames;
+    @Transactional
+    public InputFile getPhoto(Long gameId) throws NoSuchGameException{
+        GameEntity game = getGameById(gameId);
+        byte [] photo = game.getImage();
+        InputStream inputStream = new ByteArrayInputStream(photo);
+        InputFile photoFile = new InputFile();
+        photoFile.setMedia(inputStream, "photo.jpg");
+        return photoFile;
+    }
+    @Override
+    @Transactional
+    public byte [] getPhotoAsByteArray (Long gameId) throws NoSuchGameException{
+        GameEntity game = getGameById(gameId);
+        return game.getImage();
+    }
+    @Override
+    @Transactional
+    public Set<GameEntity> getAndSetExpiredGames () {
+        Set<GameEntity> expiredGames = gameRepository.findAllByDateIsBeforeAndExpired(LocalDate.now(), "NO");
+        for (GameEntity game : expiredGames){
+            Hibernate.initialize(game.getPlayers());
+            game.setExpired("YES");
+            gameRepository.save(game);
+        }
+        return expiredGames;
+    }
+    @Override
+    @Transactional
+    public void changeExpiredParameters (Long gameId, String parameter) throws NoSuchGameException{
+        if (parameter.equals("wasPlayed")){
+            GameEntity game = getGameById(gameId);
+            game.setWasPlayed("YES");
+            gameRepository.save(game);
+        } else if (parameter.equals("everyoneWasPresent")){
+            GameEntity game = getGameById(gameId);
+            game.setEveryoneWasPresent("NO");
+            gameRepository.save(game);
+        } else if (parameter.equals("attendance")){
+
+        }
+    }
+    private String generateKey (){
+        SecureRandom random = new SecureRandom();
+        String characters = "abcdefghijklmnopqrstuvwxyz0123456789";
+        StringBuilder key = new StringBuilder(KEY_LENGTH);
+        for (int i = 0; i < KEY_LENGTH; i++) {
+            int index = random.nextInt(characters.length());
+            key.append(characters.charAt(index));
+        }
+        return key.toString();
     }
 }

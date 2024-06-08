@@ -2,20 +2,23 @@ package org.example.tools.bot_tools;
 
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 
+import java.util.Set;
+
 public class Message {
     private String text;
     private long chatId;
     private InlineKeyboardMarkup markup;
-    private boolean menu;
-    private Message previousMessage;
+    private Set<Message> previousMessageSet;
+    private byte [] photo;
+    boolean menu;
 
     public Message (){}
-    public Message (String text, long chatId, InlineKeyboardMarkup markup, boolean menu){
+    public Message (String text, long chatId, InlineKeyboardMarkup markup, byte[] photo){
         this.text = text;
         this.chatId = chatId;
         this.markup = markup;
-        this.menu = menu;
-        previousMessage = null;
+        previousMessageSet = null;
+        this.photo = photo;
     }
 
     public String getText() {
@@ -42,23 +45,29 @@ public class Message {
         this.markup = markup;
     }
 
+
+
+    public Set<Message> getPreviousMessageSet() {
+        return previousMessageSet;
+    }
+
+    public void setPreviousMessageSet(Set<Message> previousMessageSet) {
+        this.previousMessageSet = previousMessageSet;
+    }
+
+    public byte[] getPhoto() {
+        return photo;
+    }
+
+    public void setPhoto(byte[] photo) {
+        this.photo = photo;
+    }
+
     public boolean isMenu() {
         return menu;
     }
 
     public void setMenu(boolean menu) {
         this.menu = menu;
-    }
-
-    public Message getPreviousMessage() {
-        return previousMessage;
-    }
-
-    public void setPreviousMessage(Message previousMessage) {
-        if (menu){
-            this.previousMessage = null;
-        } else {
-            this.previousMessage = previousMessage;
-        }
     }
 }
