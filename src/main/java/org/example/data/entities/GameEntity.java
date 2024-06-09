@@ -258,7 +258,7 @@ public class GameEntity {
         }
     }
     private void controlRoleSystemOrGenre (String input) throws BadDataException{
-        if (input.length() > 30){
+        if (input.length() > 100){
             if (TraceTools.traceContainsMethod("setGenre")) {
                 throw new BadDataException("Game genre is too long. It must be max 30 characters long.");
             } else {

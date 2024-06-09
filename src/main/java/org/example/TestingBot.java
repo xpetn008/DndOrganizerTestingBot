@@ -537,7 +537,7 @@ public class TestingBot extends TelegramLongPollingBot {
             } else {
                 try {
                     newGame.setName(messageText);
-                    sendPhotoMessageWithFilePath("<u>Game Creation </u> \n\n<b><i>Enter a description of the game</i></b> \n\nDescribe your game in the message box and send it! \n\nThe game description will be on the game card under the game name. It is usually one or two paragraphs long. The maximum length of the description is 650 characters and the minimum is 200. \n\nAn example of a good sized game description: \n<i>“You are hired to investigate a mysterious disappearance of people in a major city. The authorities are silent, people from the surrounding villages are in fear. The city itself is full of rumors, but how much are they connected to the incidents? Who is behind the missing people? And what's going on in the once calm and quiet town?”</i>",
+                    sendPhotoMessageWithFilePath("<u>Game Creation </u> \n\n<b><i>Enter a description of the game</i></b> \n\nDescribe your game in the message box and send it! \n\nThe game description will be on the game card under the game name. It is usually one or two paragraphs long. The maximum length of the description is 650 characters. \n\nAn example of a good sized game description: \n<i>“You are hired to investigate a mysterious disappearance of people in a major city. The authorities are silent, people from the surrounding villages are in fear. The city itself is full of rumors, but how much are they connected to the incidents? Who is behind the missing people? And what's going on in the once calm and quiet town?”</i>",
                             chatId, null, false, false, "d/wizard");
                     userStates.replace(chatId, "creating_game_maxplayers");
                 } catch (BadDataException e){
@@ -556,7 +556,7 @@ public class TestingBot extends TelegramLongPollingBot {
         } else if (userStates.get(chatId).equals("creating_game_rolesystem")){
             try{
                 newGame.setMaxPlayersByString(messageText);
-                sendPhotoMessageWithFilePath("<u>Game Creation</u> \n\n<b><i>What roleplaying system are you going to use? D&D? Pathfinder?</i></b> \n\nWrite the name of that roleplaying system and the edition number in the message box, then submit it.",
+                sendPhotoMessageWithFilePath("<u>Game Creation</u> \n\n<b><i>What roleplaying system are you going to use?</i></b> \n\nWrite the name of that roleplaying system and the edition number in the message box, then submit it.",
                         chatId, null, false, false, "d/wizard");
                 userStates.replace(chatId, "creating_game_genre");
             } catch (BadDataException e){
@@ -574,7 +574,7 @@ public class TestingBot extends TelegramLongPollingBot {
         } else if (userStates.get(chatId).equals("creating_game_type")){
             try {
                 newGame.setGenre(messageText);
-                InlineKeyboardMarkup markup = createMarkup(3, Map.of(0, "Campaign", 1, "One shot", 2, "Real life game"),
+                InlineKeyboardMarkup markup = createMarkup(3, Map.of(0, "Campaign", 1, "One shot", 2, "LARP"),
                         Map.of(0, "creatingGameTypeCampaign", 1, "creatingGameTypeOneshot", 2, "creatingGameTypeRealLifeGame"));
                 sendPhotoMessageWithFilePath("<u>Game Creation</u> \n\n<b><i>What format will the game be in? Will it be a one shoot or part of a campaign? Or will it be a LARP?</i></b> \n\nChoose one of the options!",
                         chatId, markup, false, false, "d/wizard");
@@ -687,7 +687,7 @@ public class TestingBot extends TelegramLongPollingBot {
                 UserEntity master = userService.getUserEntity(actualUser);
                 gameService.create(newGame.getName(), newGame.getDate(), newGame.getTime(), master, newGame.getGameType(), newGame.getDescription(), newGame.getMaxPlayers(), newGame.getLanguage(), newGame.getPrice(), newGame.getImage(), newGame.getRoleSystem(), newGame.getGenre());
                 userStates.replace(chatId, "default");
-                sendPhotoMessageWithFilePath(messageText, chatId, null, false, false, "d/wizard");
+                sendPhotoMessageWithFilePath(message, chatId, null, false, false, "d/wizard");
                 showMenu(chatId, actualUser);
             } catch (DateTimeException e) {
                 message = "Bad time format. Please write time again: ";
@@ -1071,9 +1071,9 @@ public class TestingBot extends TelegramLongPollingBot {
             GameEntity game = gameService.getGameById(Long.parseLong(gameId));
             UserEntity player = userService.getUserEntity(actualUser);
             gameService.joinPlayer(player, game);
+            showMenu(chatId, actualUser);
             sendPhotoMessageWithFilePath("<u>Registration for the game - Done</u> \n\n<b><i>You have successfully registered for the game!</i></b> \n\nWe have notified the Master of this game and he will contact you in a short time.", chatId, null, false, false, "d/mercenary");
             sendMessage("ATTENTION: @"+actualUser.getUserName()+" have joined your game - "+game.getName()+" on "+DateTools.parseLocalDateToString(game.getDate())+"! Players are now "+game.getPlayers().size()+"/"+game.getMaxPlayers(), gameService.getMasterTelegramId(game), null, false, false);
-            showMenu(chatId, actualUser);
         } catch (NumberFormatException e){
             standardError(e, chatId);
         } catch (NoSuchGameException | JoinGameException e){
@@ -1102,7 +1102,7 @@ public class TestingBot extends TelegramLongPollingBot {
                         "\n<b>Price:</b> " + (game.getPrice()==0 ? "free" : game.getPrice()+",-")+
                         "\n<b>Players:</b> " + game.getPlayers().size() + "/" + game.getMaxPlayers() +
                         "\n";
-                InlineKeyboardMarkup markup = createMarkup(1, Map.of(0, "Disconnect"), Map.of(0, "userGameListChoice_"+game.getId()));
+                InlineKeyboardMarkup markup = createMarkup(1, Map.of(0, "Leave the game"), Map.of(0, "userGameListChoice_"+game.getId()));
                 sendPhotoMessageWithFilePath(message, chatId, markup, false, true,"game_"+game.getId());
             }
         } catch (UserIsNotRegisteredException e){
@@ -1117,13 +1117,13 @@ public class TestingBot extends TelegramLongPollingBot {
             GameEntity disconnectedGame = gameService.getGameById(gameId);
             if (userStates.get(chatId).equals("disconnecting_game_choice")) {
                 InlineKeyboardMarkup markup = createMarkup(2, Map.of(0, "Yes", 1, "No"), Map.of(0, "disconnectingYes", 1, "disconnectingNo"));
-                sendMessage("Do you really want to leave this game?", chatId, markup, false, false);
+                sendPhotoMessageWithFilePath("<b><i>Do you really want to leave this game?</i></b>", chatId, markup, false, false, "d/writer");
             } else if (userStates.get(chatId).equals("disconnecting_game_yes")) {
                 try {
                     gameService.disconnectPlayer(userService.getUserEntity(actualUser), disconnectedGame);
-                    sendMessage("You were disconnected.", chatId, null, false, false);
-                    sendMessage("ATTENTION: @"+actualUser.getUserName()+" have disconnected your game - "+disconnectedGame.getName()+" on "+DateTools.parseLocalDateToString(disconnectedGame.getDate())+"! Players are now "+disconnectedGame.getPlayers().size()+"/"+disconnectedGame.getMaxPlayers(), gameService.getMasterTelegramId(disconnectedGame), null, false, false);
                     showMenu(chatId, actualUser);
+                    sendPhotoMessageWithFilePath("<b><i>You have left the game.</i></b>", chatId, null, false, false, "d/writer");
+                    sendMessage("ATTENTION: @"+actualUser.getUserName()+" have left your game - "+disconnectedGame.getName()+" on "+DateTools.parseLocalDateToString(disconnectedGame.getDate())+"! Players are now "+disconnectedGame.getPlayers().size()+"/"+disconnectedGame.getMaxPlayers(), gameService.getMasterTelegramId(disconnectedGame), null, false, false);
                 } catch (UserIsNotRegisteredException e) {
                     standardError(e, chatId);
                     showMenu(chatId, actualUser);
@@ -1512,6 +1512,9 @@ public class TestingBot extends TelegramLongPollingBot {
     private void standardError (Exception e, long chatId){
         sendMessage("Something went wrong!", chatId, null, false, false);
         sendMessage(e.getMessage(), chatId, null, false, false);
+        if (TraceTools.traceContainsMethod("createGame")){
+            sendMessage("Please send a correct version of this parameter.", chatId, null, false, false);
+        }
     }
     private java.io.File handleMessagePhotoFile (String photoFilePath){
         InputStream resourceStream = getClass().getClassLoader().getResourceAsStream(photoFilePath);
@@ -1552,10 +1555,9 @@ public class TestingBot extends TelegramLongPollingBot {
     }
     private void handleFeedback (String messageText, User actualUser, long chatId){
         feedbackService.create(messageText, actualUser);
-        sendMessage("Thank you for your feedback!", chatId, null, false, false);
+        showMenu(chatId, actualUser);
         sendPhotoMessageWithFilePath("<u>Feedback</u>\n\n<b><i>Thank you very much for your feedback!</i></b>\n\nIf you notice anything else, please write us about it too!",
                 chatId, null, false, false, "d/waitress");
-        showMenu(chatId, actualUser);
     }
     private void handlePollAnswer (PollAnswer pollAnswer, long chatId){
         try {

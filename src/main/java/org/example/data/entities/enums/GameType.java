@@ -9,7 +9,7 @@ public enum GameType {
         return switch (this) {
             case CAMPAIGN -> "Campaign";
             case ONESHOT -> "One Shot";
-            case REAL_LIFE_GAME -> "Real life game";
+            case REAL_LIFE_GAME -> "LARP";
         };
     }
     public static GameType parseGameType (String typeString) throws BadDataTypeException{
