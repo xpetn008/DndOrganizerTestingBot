@@ -19,7 +19,5 @@ public interface GameRepository extends CrudRepository<GameEntity, Long> {
     Set<GameEntity> findAllByPlayersContainsAndExpired (UserEntity player, String expired);
     Set<GameEntity> findAllByDateBetween (LocalDate today, LocalDate tomorrow);
     Set<GameEntity> findAllByDateIsBeforeAndExpired (LocalDate today, String expired);
-    boolean existsByKey (String key);
-    Optional<GameEntity> findByKey (String key);
 
 }

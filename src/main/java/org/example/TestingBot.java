@@ -279,8 +279,11 @@ public class TestingBot extends TelegramLongPollingBot {
                 }
             } else if (callData.equals("faq")){
                 sendMessage("FAQ will be here ;)", chatId, null, true, true);
+                sendPhotoMessageWithFilePath("<b>Who are we? What kind of team are we?</b> \\n\\nWe are a small team of developers rallying around the idea of helping players from different cities or countries to gather and play tabletop role-playing games together. \\n\\nA huge number of people want to join this hobby, but can't find like-minded people in their city. A very common and very sad situation. \\n\\nAnd we will fix it! \\n\\nOur service is designed to help you find other players quickly, easily and without unnecessary movements. And we promise to do everything that depends on us, so that you can as soon as possible immerse yourself in the world of role-playing board games without unnecessary difficulties! \\n\\n<i>Regards,</i> \\n<i>Dungeon Location team</i> \\n\\n*Above you can see our best photo.",
+                        chatId, null, true, true, "d/ourTeam");
             } else if (callData.equals("aboutUs")){
-                sendMessage("Information about us will be here soon ;)", chatId, null, true, true);
+                sendPhotoMessageWithFilePath("<b>Who are we? What kind of team are we?</b> \\n\\nWe are a small team of developers rallying around the idea of helping players from different cities or countries to gather and play tabletop role-playing games together. \\n\\nA huge number of people want to join this hobby, but can't find like-minded people in their city. A very common and very sad situation. \\n\\nAnd we will fix it! \\n\\nOur service is designed to help you find other players quickly, easily and without unnecessary movements. And we promise to do everything that depends on us, so that you can as soon as possible immerse yourself in the world of role-playing board games without unnecessary difficulties! \\n\\n<i>Regards,</i> \\n<i>Dungeon Location team</i> \\n\\n*Above you can see our best photo.",
+                        chatId, null, true, true, "d/ourTeam");
             } else if (callData.equals("backButton")) {
                 Set<org.example.tools.bot_tools.Message> previousMessages = oldMessages.get(chatId).getFirst();
                 oldMessages.get(chatId).removeFirst();
@@ -1006,14 +1009,17 @@ public class TestingBot extends TelegramLongPollingBot {
     public void showAllGamesByLanguage(long chatId, String language, User actualUser){
         if (userStates.get(chatId).equals("showing_games_select_language")) {
             InlineKeyboardMarkup markup = createButtonsByLanguages();
-            sendMessage("Please choose language of the game.", chatId, markup, true, true);
+            sendPhotoMessageWithFilePath("<u>Select language</u>\n\n<u><i>What language will you play in?</i></u>",
+                    chatId, markup, true, true, "d/mercenary");
         } else if (userStates.get(chatId).equals("showing_games_print")){
             try {
                 Set<GameEntity> games = gameService.getAllGamesByLanguage(GameLanguage.parseGameLanguage(language));
-                sendMessage("<b>GAMES IN "+GameLanguage.parseGameLanguage(language).toFullString().toUpperCase()+"</b>", chatId, null, true, true);
+                sendPhotoMessageWithFilePath("<u>List of scheduled games</u>\n\n<b><i>Brave mercenary, what mission will you decide to go on?</i></b> \n\nEach post below represents an <b>actual scheduled game</b>. To sign up for a game, click on the “Register for this game” button below the corresponding post. The game master will receive a link to your profile and will contact you after a short time.\n\nBelow this message you will see buttons for filtering. Use them to sort the games as you like.",
+                        chatId, null, true, true, "d/mercenary");
                 for (GameEntity game : games) {
                     String message = "<b>"+game.getName()+"</b>";
-                    message += "\n<b>Game type:</b> " + game.getGameType() +
+                    message += "\n\n" + game.getDescription() +
+                            "\n\n<b>Game type:</b> " + game.getGameType() +
                             "\n<b>Master:</b> @" + game.getMaster().getUsername() +
                             "\n<b>Language:</b> "+game.getLanguage().toFullString()+
                             "\n<b>Role system:</b> "+game.getRoleSystem()+
@@ -1022,7 +1028,6 @@ public class TestingBot extends TelegramLongPollingBot {
                             "\n<b>Time:</b> " + TimeTools.parseLocalTimeToString(game.getTime()) +
                             "\n<b>Players:</b> " + game.getPlayers().size() + "/" + game.getMaxPlayers() +
                             "\n<b>Price:</b> " + (game.getPrice()==0 ? "free" : game.getPrice())+
-                            "\n<b>Description:</b> " + game.getDescription() +
                             "\n";
                     InlineKeyboardMarkup markup = createMarkup(1, Map.of(0, "Join game"), Map.of(0, "choosingGameToJoin_"+game.getId()));
                     sendPhotoMessageWithFilePath(message, chatId, markup, false, true, "game_"+game.getId());
@@ -1056,10 +1061,12 @@ public class TestingBot extends TelegramLongPollingBot {
         try {
             UserEntity user = userService.getUserEntity(actualUser);
             Set<GameEntity> userGames = gameService.getAllGamesByPlayer(user);
-            sendMessage("<b>YOU HAVE JOINED THESE GAMES:</b>", chatId, null, true, true);
+            sendPhotoMessageWithFilePath("<u>List of games I'm registered in</u> \\n\\n<b><i>Below this message are the cards of all games in which you are currently registered as a player</i></b> \\n\\nHere you can specify when or where the game is being played if you have forgotten. \\n\\nIt is also here that you can cancel your registration for games that you can no longer attend. We kindly ask you not to do this at the last moment.",
+                    chatId, null, true, true, "d/writer");
             for (GameEntity game : userGames){
                 String message = "<b>" + game.getName() + "</b>";
-                message += "\n<b>Game type:</b> " + game.getGameType() +
+                message += "\n\n" + game.getDescription() +
+                        "\n\n<b>Game type:</b> " + game.getGameType() +
                         "\n<b>Master:</b> @" + game.getMaster().getUsername() +
                         "\n<b>Language:</b> "+game.getLanguage().toFullString()+
                         "\n<b>Role system:</b> "+game.getRoleSystem()+
@@ -1067,7 +1074,6 @@ public class TestingBot extends TelegramLongPollingBot {
                         "\n<b>Date:</b> " + DateTools.parseLocalDateToString(game.getDate()) +
                         "\n<b>Time:</b> " + TimeTools.parseLocalTimeToString(game.getTime()) +
                         "\n<b>Price:</b> " + (game.getPrice()==0 ? "free" : game.getPrice())+
-                        "\n<b>Description:</b> " + game.getDescription() +
                         "\n<b>Players:</b> " + game.getPlayers().size() + "/" + game.getMaxPlayers() +
                         "\n";
                 InlineKeyboardMarkup markup = createMarkup(1, Map.of(0, "Disconnect"), Map.of(0, "userGameListChoice_"+game.getId()));
@@ -1521,6 +1527,8 @@ public class TestingBot extends TelegramLongPollingBot {
     private void handleFeedback (String messageText, User actualUser, long chatId){
         feedbackService.create(messageText, actualUser);
         sendMessage("Thank you for your feedback!", chatId, null, false, false);
+        sendPhotoMessageWithFilePath("<u>Feedback</u>\n\n<b><i>Thank you very much for your feedback!</i></b>\n\nIf you notice anything else, please write us about it too!",
+                chatId, null, false, false, "d/waitress");
         showMenu(chatId, actualUser);
     }
     private void handlePollAnswer (PollAnswer pollAnswer, long chatId){

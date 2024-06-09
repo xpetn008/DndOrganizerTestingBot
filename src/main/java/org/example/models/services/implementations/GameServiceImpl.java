@@ -46,17 +46,6 @@ public class GameServiceImpl implements GameService {
         newGame.setRoleSystem(roleSystem);
         newGame.setGenre(genre);
         newGame.setBooleans();
-        boolean newKey;
-        String key;
-        do {
-            key = generateKey();
-            if (gameRepository.existsByKey(key)){
-                newKey = false;
-            } else {
-                newKey = true;
-            }
-        } while (!newKey);
-        newGame.setKey(key);
         gameRepository.save(newGame);
     }
     @Override

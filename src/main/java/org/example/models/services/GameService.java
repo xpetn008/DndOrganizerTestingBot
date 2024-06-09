@@ -31,6 +31,6 @@ public interface GameService {
     byte [] getPhotoAsByteArray (Long gameId) throws NoSuchGameException;
     Set<GameEntity> getAndSetExpiredGames ();
     void changeExpiredParameters (Long gameId, String parameter) throws NoSuchGameException;
-    GameEntity getGameByKey (String key) throws NoSuchGameException;
+
 
 }

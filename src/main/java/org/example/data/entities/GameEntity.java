@@ -65,8 +65,6 @@ public class GameEntity {
     @MapKeyColumn(name = "player_name")
     @Column(name = "attended")
     private Map<String, Boolean> attendance = new HashMap<>();
-    @Column(name = "key")
-    private String key;
 
 
     public GameEntity(){}
@@ -338,11 +336,4 @@ public class GameEntity {
         this.attendance = attendance;
     }
 
-    public String getKey() {
-        return key;
-    }
-
-    public void setKey(String key) {
-        this.key = key;
-    }
 }
