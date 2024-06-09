@@ -210,17 +210,11 @@ public class GameEntity {
     }
 
     public void setGenre(String genre) throws BadDataException{
-        if (!controlStringDoesntContainNumbers(genre)){
-            throw new BadDataException("Game genre cannot have numbers");
-        }
         controlRoleSystemOrGenre(genre);
         this.genre = genre;
     }
 
     public void setRoleSystem(String roleSystem) throws BadDataException{
-        if (!controlStringDoesntContainNumbers(roleSystem)){
-            throw new BadDataException("Role system cannot have numbers");
-        }
         controlRoleSystemOrGenre(roleSystem);
         this.roleSystem = roleSystem;
     }

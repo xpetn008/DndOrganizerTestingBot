@@ -27,7 +27,7 @@ import java.util.*;
 public class GameServiceImpl implements GameService {
     @Autowired
     private GameRepository gameRepository;
-    private final int maximumGames = 10;
+    private final int maximumGames = 100;
     private final int KEY_LENGTH = 8;
 
     @Override

@@ -27,7 +27,7 @@ public class UserServiceImpl implements UserService {
     public void create (User user) throws UserAlreadyRegisteredException, BadDataException {
         String username = user.getUserName();
         if (username == null){
-            throw new BadDataException("You telegram account doesn't contains username and it's impossible to use this bot without it. Please create your unique username for your telegram.");
+            throw new BadDataException("<u>Username</u> \n\n<b><i>Uh, I guess you don't have a username!</i></b> \n\nTo use this bot, your Telegram account must have a username. You can set it in your account settings, it will only take a couple of seconds!");
         }
         long telegramId = user.getId();
         if (isRegistered(user)){
